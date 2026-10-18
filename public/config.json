@@ -1,0 +1,134 @@
+{
+  "brand": {
+    "name": "IvanovService",
+    "tagline": "Монтаж, который продаёт",
+    "description": "Монтирую вертикальные ролики для блогеров и брендов: Reels, TikTok и YouTube Shorts. Динамика, анимированные субтитры и цветокоррекция.",
+    "bot": "IvanovServiceBot",
+    "ownerTelegram": "ivanovv50",
+    "instagram": "montazh.pro.reels"
+  },
+  "apiBase": "",
+  "currency": "₽",
+  "services": [
+    {
+      "id": "s20",
+      "title": "Короткий ролик",
+      "duration": "до 20 секунд",
+      "price": 400,
+      "from": false,
+      "description": "Быстрый динамичный монтаж: сильное начало, субтитры, цветокоррекция.",
+      "popular": true
+    },
+    {
+      "id": "s30",
+      "title": "Стандартный ролик",
+      "duration": "20–30 секунд",
+      "price": 800,
+      "from": false,
+      "description": "Самый частый формат для Reels и TikTok: темп, субтитры по словам, графика.",
+      "popular": true
+    },
+    {
+      "id": "s40",
+      "title": "Ролик с историей",
+      "duration": "30–40 секунд",
+      "price": 1200,
+      "from": false,
+      "description": "Больше времени на сюжет: перебивки, акценты и анимированные субтитры.",
+      "popular": false
+    },
+    {
+      "id": "s60",
+      "title": "Длинный ролик",
+      "duration": "40–60 секунд",
+      "price": 1600,
+      "from": false,
+      "description": "Полноценный ролик до минуты: удержание внимания на всей длине.",
+      "popular": true
+    },
+    {
+      "id": "s100",
+      "title": "Расширенный ролик",
+      "duration": "60–100 секунд",
+      "price": 2000,
+      "from": false,
+      "description": "Длинный формат для YouTube Shorts и экспертных роликов.",
+      "popular": false
+    },
+    {
+      "id": "s100plus",
+      "title": "Большой проект",
+      "duration": "от 100 секунд",
+      "price": 2400,
+      "from": false,
+      "description": "Длинные ролики и сложные проекты: больше сцен, графики и работы со звуком.",
+      "popular": false
+    }
+  ],
+  "extras": [
+    {
+      "id": "urgent",
+      "title": "Срочный монтаж",
+      "price": null
+    },
+    {
+      "id": "version",
+      "title": "Дополнительная версия ролика",
+      "price": null
+    },
+    {
+      "id": "revisions",
+      "title": "Дополнительные правки",
+      "price": null
+    }
+  ],
+  "deadlines": [
+    "Не срочно",
+    "В течение недели",
+    "В течение 3 дней",
+    "Завтра",
+    "Как можно быстрее"
+  ],
+  "features": [
+    {
+      "icon": "bolt",
+      "title": "Динамичный монтаж",
+      "text": "Сильное начало и темп, который держит до конца"
+    },
+    {
+      "icon": "subs",
+      "title": "Анимированные субтитры",
+      "text": "Слова появляются по ходу речи"
+    },
+    {
+      "icon": "color",
+      "title": "Цветокоррекция",
+      "text": "Ровный, приятный цвет в каждом кадре"
+    },
+    {
+      "icon": "phone",
+      "title": "Reels, TikTok и Shorts",
+      "text": "Вертикальный формат 9:16 под все площадки"
+    }
+  ],
+  "portfolio": [
+    {
+      "title": "Ваша работа №1",
+      "description": "Заглушка. Замените название, описание, обложку и ссылку в config.json.",
+      "cover": "",
+      "url": ""
+    },
+    {
+      "title": "Ваша работа №2",
+      "description": "Заглушка. Добавьте ссылку на ролик в Instagram, TikTok или YouTube.",
+      "cover": "",
+      "url": ""
+    },
+    {
+      "title": "Ваша работа №3",
+      "description": "Заглушка. Обложку положите в public/assets и укажите путь в поле cover.",
+      "cover": "",
+      "url": ""
+    }
+  ]
+}

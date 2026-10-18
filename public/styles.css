@@ -1,0 +1,189 @@
+/* IvanovService Mini App — стиль Apple Liquid Glass, тёмно-синяя палитра бренда */
+:root{
+  --ink:#060B1F; --ink2:#0B1430; --blue:#2F6BFF; --gold:#E8B84A; --chalk:#F2F4F8; --steel:#8E94A3;
+  --danger:#FF6B7A;
+  --glass:rgba(255,255,255,.07); --glass-2:rgba(255,255,255,.11); --line:rgba(255,255,255,.12);
+  --r-card:28px; --r-pill:999px;
+  --safe-top:max(env(safe-area-inset-top,0px), var(--tg-safe-area-inset-top,0px));
+  --safe-bottom:max(env(safe-area-inset-bottom,0px), var(--tg-safe-area-inset-bottom,0px));
+  --content-top:var(--tg-content-safe-area-inset-top,0px);
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","Segoe UI",Roboto,system-ui,sans-serif;
+  --ease:cubic-bezier(.2,.9,.25,1.1);
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%}
+body{background:var(--ink);color:var(--chalk);font-family:var(--font);font-size:16px;line-height:1.45;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+/* в светлой теме Telegram стиль остаётся тёмно-синим, но фон чуть светлее, чтобы не было «дыры» под шапкой */
+body[data-scheme="light"]{--ink:#0B1533}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--blue);outline-offset:3px;border-radius:12px}
+[hidden]{display:none!important}
+
+/* Фон: пятна света. Без backdrop-filter, чтобы не грузить слабые телефоны */
+.bg{position:fixed;inset:0;z-index:-1;overflow:hidden;background:var(--ink)}
+.blob{position:absolute;border-radius:50%;filter:blur(70px);opacity:.55}
+.b1{width:70vw;height:70vw;left:-25vw;top:40vh;background:var(--blue)}
+.b2{width:60vw;height:60vw;right:-20vw;top:-10vh;background:#1B3FA8;opacity:.7}
+.b3{width:40vw;height:40vw;right:-10vw;top:70vh;background:var(--gold);opacity:.12}
+
+/* Шапка */
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;
+  padding:calc(var(--safe-top) + var(--content-top) + 12px) 18px 10px;
+  background:linear-gradient(180deg,rgba(6,11,31,.92),rgba(6,11,31,.6) 70%,rgba(6,11,31,0))}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.logo-mark{width:40px;height:25px}
+.logo-text{font-weight:700;font-size:18px;letter-spacing:-.3px}
+.logo-text b{color:var(--blue);font-weight:700}
+.env-badge{font-size:12px;color:var(--steel);border:1px solid var(--line);padding:3px 10px;border-radius:var(--r-pill)}
+
+main{padding:4px 18px calc(var(--safe-bottom) + 104px);outline:none;max-width:560px;margin:0 auto}
+.screen{animation:screenIn .38s var(--ease) both}
+@keyframes screenIn{from{opacity:0;transform:translateY(14px);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}
+
+/* Стекло */
+.glass-card{background:linear-gradient(135deg,rgba(255,255,255,.12),rgba(255,255,255,.04) 55%,rgba(255,255,255,.07));
+  border-radius:var(--r-card);box-shadow:inset 0 1.5px 0 rgba(255,255,255,.35),inset 0 -1px 0 rgba(255,255,255,.06),0 18px 40px rgba(0,0,12,.35);
+  border:1px solid rgba(255,255,255,.06)}
+
+/* Типографика */
+.hero{padding:18px 0 26px}
+.eyebrow-pill{display:inline-block;margin:0 0 14px;font-size:13px;color:var(--chalk);padding:6px 14px;border-radius:var(--r-pill);
+  background:var(--glass-2);box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
+.hero-title{margin:0;font-size:40px;line-height:1.04;letter-spacing:-1.2px;font-weight:800}
+.accent{color:#fff;background:var(--blue);border-radius:16px;padding:0 10px;box-shadow:0 10px 30px rgba(47,107,255,.45)}
+.hero-text{color:var(--steel);margin:14px 0 22px;font-size:16px;max-width:34ch}
+.hero-actions{display:flex;gap:10px;flex-wrap:wrap}
+.section-head{display:flex;align-items:baseline;justify-content:space-between;margin:10px 0 12px}
+.section-head h2,.section-title{font-size:21px;letter-spacing:-.4px;margin:0}
+.section-title{margin:28px 0 12px}
+.screen-title{font-size:30px;letter-spacing:-.8px;margin:14px 0 6px;font-weight:800}
+.screen-sub{color:var(--steel);margin:0 0 18px}
+.link-btn{background:none;border:0;color:var(--blue);font-weight:600;padding:8px 0}
+
+/* Кнопки */
+.btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:52px;padding:0 22px;
+  border-radius:var(--r-pill);border:0;font-weight:700;font-size:16px;transition:transform .18s var(--ease),filter .2s,opacity .2s;
+  user-select:none}
+.btn:active{transform:scale(.96)}
+.btn-primary{background:linear-gradient(135deg,#4A80FF,var(--blue));color:#fff;box-shadow:inset 0 1.5px 0 rgba(255,255,255,.45),0 14px 34px rgba(47,107,255,.45)}
+.btn-glass{background:var(--glass-2);color:var(--chalk);box-shadow:inset 0 1.5px 0 rgba(255,255,255,.3),inset 0 0 0 1px rgba(255,255,255,.06)}
+.btn-wide{width:100%;margin-top:14px}
+.btn[disabled]{opacity:.6;pointer-events:none}
+.ico{width:20px;height:20px}
+.spinner{display:none;width:20px;height:20px;border-radius:50%;border:2.5px solid rgba(255,255,255,.35);border-top-color:#fff;animation:spin .8s linear infinite}
+.btn.loading .spinner{display:inline-block}
+.btn.loading .btn-label{opacity:.8}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Карточки услуг */
+.cards-scroll{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 -18px;padding:4px 18px 10px;scrollbar-width:none}
+.cards-scroll::-webkit-scrollbar{display:none}
+.cards-scroll .svc{flex:0 0 76%;scroll-snap-align:start}
+.services-list{display:grid;gap:12px}
+.svc{padding:20px;display:flex;flex-direction:column;gap:10px;transition:transform .2s var(--ease)}
+.svc:active{transform:scale(.985)}
+.svc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.svc-title{font-size:18px;font-weight:700;margin:0;letter-spacing:-.2px}
+.svc-dur{display:inline-block;font-size:13px;color:var(--chalk);background:rgba(47,107,255,.22);padding:4px 10px;border-radius:var(--r-pill);margin-top:6px}
+.svc-price{font-size:22px;font-weight:800;color:var(--gold);white-space:nowrap;letter-spacing:-.4px}
+.svc-price.muted{font-size:16px;color:var(--chalk);font-weight:700}
+.svc-desc{color:var(--steel);margin:0;font-size:15px}
+.svc .btn{min-height:46px;align-self:flex-start;padding:0 20px;font-size:15px}
+.badge{font-size:12px;color:#1a1204;background:var(--gold);padding:3px 9px;border-radius:var(--r-pill);font-weight:700}
+
+/* Преимущества */
+.features{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.feature{padding:16px;display:flex;flex-direction:column;gap:8px;min-width:0;overflow-wrap:break-word;hyphens:auto}
+.feature .f-ico{width:40px;height:40px;border-radius:13px;display:grid;place-items:center;background:rgba(47,107,255,.22);color:#9DB8FF}
+.feature .f-ico svg{width:22px;height:22px}
+.feature b{font-size:15px;line-height:1.25}
+.feature small{color:var(--steel);font-size:13px;line-height:1.35}
+
+/* Доп. услуги */
+.extras-list{padding:6px 18px}
+.extra{display:flex;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}
+.extra:last-child{border-bottom:0}
+.extra span:last-child{color:var(--steel);white-space:nowrap}
+
+/* Портфолио */
+.portfolio-grid{display:grid;gap:14px}
+.work{overflow:hidden;padding:0}
+.work-cover{aspect-ratio:9/12;max-height:340px;width:100%;display:grid;place-items:center;
+  background:radial-gradient(120% 80% at 20% 90%,rgba(47,107,255,.55),transparent 60%),radial-gradient(90% 70% at 90% 10%,rgba(27,63,168,.7),transparent 60%),var(--ink2);
+  color:rgba(242,244,248,.55);font-weight:700;font-size:14px;letter-spacing:.2px;object-fit:cover}
+.work-body{padding:16px 18px 18px}
+.work-body h3{margin:0 0 6px;font-size:17px}
+.work-body p{margin:0 0 12px;color:var(--steel);font-size:14px}
+.work-body .btn{min-height:44px;font-size:15px}
+
+/* Контакты */
+.contact-list{display:grid;gap:10px}
+.contact{display:flex;align-items:center;gap:14px;padding:16px 18px;text-decoration:none}
+.contact b{display:block}
+.contact small{color:var(--steel)}
+.contact-ico{width:46px;height:46px;border-radius:15px;display:grid;place-items:center;background:var(--glass-2);font-size:22px;flex:none}
+.contact-ico.blue{background:var(--blue);color:#fff}
+.contact-ico svg{width:22px;height:22px}
+
+/* Форма */
+.form{padding:20px 18px;display:grid;gap:16px}
+.field{display:grid;gap:7px;border:0;margin:0;padding:0;min-width:0}
+.label{font-size:14px;color:var(--chalk);font-weight:600;padding:0}
+.label em{color:var(--gold);font-style:normal}
+input,select,textarea{width:100%;background:rgba(6,11,31,.55);border:1px solid var(--line);border-radius:16px;padding:14px 14px;
+  font-size:16px;outline:none;transition:border-color .2s,box-shadow .2s;appearance:none;-webkit-appearance:none}
+select{background-image:linear-gradient(45deg,transparent 50%,var(--steel) 50%),linear-gradient(135deg,var(--steel) 50%,transparent 50%);
+  background-position:calc(100% - 20px) 50%,calc(100% - 14px) 50%;background-size:6px 6px;background-repeat:no-repeat;padding-right:40px}
+select option{background:#0B1430;color:var(--chalk)}
+textarea{resize:vertical;min-height:110px}
+input::placeholder,textarea::placeholder{color:rgba(142,148,163,.75)}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(47,107,255,.25)}
+.field.invalid input,.field.invalid textarea,.field.invalid select{border-color:var(--danger)}
+.error{color:var(--danger);font-size:13px;min-height:0}
+.error:empty{display:none}
+.hint{color:var(--steel);font-size:13px}
+.hint:empty{display:none}
+.counter{color:var(--steel);font-size:12px;justify-self:end;margin-top:-4px}
+.checks{display:grid;gap:8px}
+.check{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:16px;background:rgba(6,11,31,.4);border:1px solid var(--line)}
+.check input{width:22px;height:22px;flex:none;padding:0;border-radius:7px;display:grid;place-items:center}
+.check input:checked{background:var(--blue);border-color:var(--blue)}
+.check input:checked::after{content:"";width:6px;height:11px;border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(45deg) translate(-1px,-1px)}
+.check span{flex:1;font-size:15px}
+.check small{color:var(--steel);white-space:nowrap}
+.privacy{font-size:13px;color:var(--steel);background:rgba(47,107,255,.1);border:1px solid rgba(47,107,255,.25);border-radius:16px;padding:12px 14px}
+.privacy b{color:var(--chalk)}
+.form-error{color:#fff;background:rgba(255,107,122,.16);border:1px solid rgba(255,107,122,.45);border-radius:16px;padding:12px 14px;font-size:14px}
+
+/* Успех */
+.success{text-align:center;padding:40px 4px}
+.success-ico{width:96px;height:96px;margin:0 auto 6px;border-radius:50%;display:grid;place-items:center;background:rgba(47,107,255,.15);box-shadow:0 0 60px rgba(47,107,255,.35)}
+.success-ico svg{width:60px;height:60px}
+
+/* Нижняя навигация */
+.tabbar{position:fixed;left:12px;right:12px;bottom:calc(var(--safe-bottom) + 10px);z-index:30;max-width:536px;margin:0 auto;
+  display:grid;grid-template-columns:repeat(4,1fr);padding:6px;border-radius:26px;
+  background:rgba(14,22,50,.78);box-shadow:inset 0 1.5px 0 rgba(255,255,255,.22),0 16px 40px rgba(0,0,12,.5);border:1px solid rgba(255,255,255,.07)}
+@supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .tabbar{background:rgba(14,22,50,.55);-webkit-backdrop-filter:blur(18px) saturate(160%);backdrop-filter:blur(18px) saturate(160%)}
+}
+.tab{display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:0;padding:8px 2px;border-radius:20px;color:var(--steel);
+  font-size:11px;font-weight:600;min-height:54px;transition:color .2s,background .2s}
+.tab svg{width:24px;height:24px}
+.tab.active{color:#fff;background:rgba(47,107,255,.28);box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
+body.hide-tabbar .tabbar{display:none}
+
+/* Тост */
+.toast{position:fixed;left:50%;bottom:calc(var(--safe-bottom) + 96px);transform:translate(-50%,20px);opacity:0;pointer-events:none;z-index:40;
+  background:rgba(20,30,62,.95);padding:12px 18px;border-radius:var(--r-pill);font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,.4);transition:all .3s var(--ease);max-width:90vw;text-align:center}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+@media (max-width:340px){.features{grid-template-columns:1fr}.hero-title{font-size:36px}}
+@media (min-width:420px){.hero-title{font-size:46px}}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+}

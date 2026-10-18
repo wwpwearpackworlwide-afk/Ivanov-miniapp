@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#060B1F">
+  <title>IvanovService — монтаж, который продаёт</title>
+  <link rel="icon" href="assets/icon.png">
+  <!-- Официальный SDK Telegram Mini Apps. Вне Telegram просто не используется. -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="bg" aria-hidden="true"><i class="blob b1"></i><i class="blob b2"></i><i class="blob b3"></i></div>
+
+  <header class="topbar">
+    <a class="logo" href="#home" aria-label="IvanovService, на главную">
+      <svg class="logo-mark" viewBox="0 0 64 40" aria-hidden="true">
+        <rect x="2" y="12" width="26" height="18" rx="6" fill="rgba(242,244,248,.75)"/>
+        <rect x="34" y="12" width="28" height="18" rx="6" fill="#2F6BFF"/>
+        <rect x="30" y="6" width="3" height="30" rx="1.5" fill="#F2F4F8"/>
+        <path d="M26.5 2h10v5l-5 4-5-4z" fill="#F2F4F8"/>
+      </svg>
+      <span class="logo-text">Ivanov<b>Service</b></span>
+    </a>
+    <span id="envBadge" class="env-badge" hidden>браузер</span>
+  </header>
+
+  <main id="app" tabindex="-1">
+    <!-- ГЛАВНАЯ -->
+    <section class="screen" id="screen-home" data-screen="home">
+      <div class="hero">
+        <p class="eyebrow-pill">Reels · TikTok · Shorts</p>
+        <h1 class="hero-title">Монтаж,<br>который <span class="accent">продаёт</span></h1>
+        <p class="hero-text" id="heroText"></p>
+        <div class="hero-actions">
+          <button class="btn btn-primary" data-action="order">Оформить заказ</button>
+          <button class="btn btn-glass" data-go="portfolio">Смотреть работы</button>
+        </div>
+      </div>
+
+      <div class="section-head">
+        <h2>Популярные услуги</h2>
+        <button class="link-btn" data-go="services">Все услуги</button>
+      </div>
+      <div class="cards-scroll" id="popularList"></div>
+
+      <h2 class="section-title">Что входит в монтаж</h2>
+      <div class="features" id="featuresList"></div>
+
+      <button class="btn btn-glass btn-wide" data-action="telegram">
+        <svg viewBox="0 0 24 24" class="ico" aria-hidden="true"><path d="M21.5 4.3 2.9 11.5c-1 .4-1 1.8.1 2.1l4.6 1.5 1.8 5.4c.3.8 1.3 1 1.9.4l2.6-2.5 4.7 3.5c.7.5 1.7.1 1.9-.7L23 5.6c.2-1-.6-1.7-1.5-1.3ZM9.6 14.5l8.4-6.6-6.6 7.6-.3 3.1-1.5-4.1Z" fill="currentColor"/></svg>
+        Написать мне в Telegram
+      </button>
+    </section>
+
+    <!-- УСЛУГИ -->
+    <section class="screen" id="screen-services" data-screen="services" hidden>
+      <h1 class="screen-title">Услуги и цены</h1>
+      <p class="screen-sub">Предварительный прайс. Цена зависит от длины готового ролика.</p>
+      <div class="services-list" id="servicesList"></div>
+      <h2 class="section-title">Дополнительно</h2>
+      <div class="glass-card extras-list" id="extrasList"></div>
+    </section>
+
+    <!-- ПОРТФОЛИО -->
+    <section class="screen" id="screen-portfolio" data-screen="portfolio" hidden>
+      <h1 class="screen-title">Мои работы</h1>
+      <p class="screen-sub">Примеры монтажа. Скоро здесь появятся новые ролики.</p>
+      <div class="portfolio-grid" id="portfolioList"></div>
+    </section>
+
+    <!-- КОНТАКТЫ -->
+    <section class="screen" id="screen-contacts" data-screen="contacts" hidden>
+      <h1 class="screen-title">Контакты</h1>
+      <p class="screen-sub">Пишите по любым вопросам о монтаже.</p>
+      <div class="contact-list">
+        <a class="glass-card contact" id="cTelegram" target="_blank" rel="noopener">
+          <span class="contact-ico blue">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.5 4.3 2.9 11.5c-1 .4-1 1.8.1 2.1l4.6 1.5 1.8 5.4c.3.8 1.3 1 1.9.4l2.6-2.5 4.7 3.5c.7.5 1.7.1 1.9-.7L23 5.6c.2-1-.6-1.7-1.5-1.3Z" fill="currentColor"/></svg>
+          </span>
+          <span><b>Telegram</b><small id="cTelegramText"></small></span>
+        </a>
+        <a class="glass-card contact" id="cBot" target="_blank" rel="noopener">
+          <span class="contact-ico">🤖</span>
+          <span><b>Бот заказов</b><small id="cBotText"></small></span>
+        </a>
+        <a class="glass-card contact" id="cInsta" target="_blank" rel="noopener">
+          <span class="contact-ico">📸</span>
+          <span><b>Instagram</b><small id="cInstaText"></small></span>
+        </a>
+      </div>
+      <button class="btn btn-primary btn-wide" data-action="order">Оформить заказ</button>
+    </section>
+
+    <!-- ФОРМА ЗАКАЗА -->
+    <section class="screen" id="screen-order" data-screen="order" hidden>
+      <h1 class="screen-title">Оформление заказа</h1>
+      <p class="screen-sub">Заполните форму — заявка придёт мне в Telegram.</p>
+      <form id="orderForm" class="glass-card form" novalidate>
+        <label class="field">
+          <span class="label">Услуга <em>*</em></span>
+          <select name="serviceId" id="fService" required></select>
+          <span class="hint" id="servicePrice"></span>
+        </label>
+
+        <label class="field">
+          <span class="label">Ссылка на исходное видео или материалы <em>*</em></span>
+          <input name="sourceUrl" id="fSource" type="url" inputmode="url" placeholder="https://disk.yandex.ru/..." autocomplete="off" required>
+          <span class="error" data-for="sourceUrl"></span>
+        </label>
+
+        <label class="field">
+          <span class="label">Пример желаемого монтажа</span>
+          <input name="exampleUrl" id="fExample" type="url" inputmode="url" placeholder="https://www.instagram.com/reel/..." autocomplete="off">
+          <span class="error" data-for="exampleUrl"></span>
+        </label>
+
+        <label class="field">
+          <span class="label">Описание задачи <em>*</em></span>
+          <textarea name="description" id="fDesc" rows="4" maxlength="1000" placeholder="Что за ролик, для какой площадки, что важно сделать" required></textarea>
+          <span class="counter" id="descCounter">0 / 1000</span>
+          <span class="error" data-for="description"></span>
+        </label>
+
+        <label class="field">
+          <span class="label">Желаемый срок <em>*</em></span>
+          <select name="deadline" id="fDeadline" required></select>
+        </label>
+
+        <fieldset class="field">
+          <legend class="label">Дополнительно</legend>
+          <div id="fExtras" class="checks"></div>
+        </fieldset>
+
+        <label class="field">
+          <span class="label">Имя или Telegram для связи <span id="contactReq"><em>*</em></span></span>
+          <input name="contact" id="fContact" type="text" maxlength="100" placeholder="@username или имя" autocomplete="nickname">
+          <span class="hint" id="contactHint"></span>
+          <span class="error" data-for="contact"></span>
+        </label>
+
+        <div class="privacy">
+          <b>Кому уходят данные.</b> Заявка отправляется владельцу бота @<span class="botName"></span> в Telegram:
+          услуга, ссылки, описание, срок, контакт и ваш Telegram-аккаунт (имя и @username, если он есть). Больше никому.
+        </div>
+
+        <div class="form-error" id="formError" role="alert" hidden></div>
+        <button class="btn btn-primary btn-wide" id="submitBtn" type="submit">
+          <span class="btn-label">Отправить заявку</span>
+          <span class="spinner" aria-hidden="true"></span>
+        </button>
+      </form>
+    </section>
+
+    <!-- УСПЕХ -->
+    <section class="screen" id="screen-success" data-screen="success" hidden>
+      <div class="success">
+        <div class="success-ico" aria-hidden="true">
+          <svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24" fill="none" stroke="#2F6BFF" stroke-width="3"/><path d="M15 27l7 7 15-16" fill="none" stroke="#F2F4F8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <h1 class="screen-title">Заявка отправлена</h1>
+        <p class="screen-sub" id="successText"></p>
+        <button class="btn btn-primary btn-wide" id="closeBtn">Готово</button>
+        <button class="btn btn-glass btn-wide" data-go="home">На главную</button>
+      </div>
+    </section>
+
+    <!-- ОШИБКА ЗАГРУЗКИ -->
+    <section class="screen" id="screen-error" data-screen="error" hidden>
+      <div class="success">
+        <h1 class="screen-title">Не удалось загрузить</h1>
+        <p class="screen-sub">Проверьте интернет и попробуйте ещё раз.</p>
+        <button class="btn btn-primary btn-wide" id="reloadBtn">Обновить</button>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabbar" aria-label="Навигация">
+    <button data-go="home" class="tab" aria-label="Главная">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" fill="currentColor"/></svg><span>Главная</span></button>
+    <button data-go="services" class="tab" aria-label="Услуги">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="5" rx="2.5" fill="currentColor"/><rect x="3" y="11" width="18" height="9" rx="3" fill="currentColor" opacity=".55"/></svg><span>Услуги</span></button>
+    <button data-go="portfolio" class="tab" aria-label="Портфолио">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2.5" fill="currentColor"/><rect x="13" y="3" width="8" height="8" rx="2.5" fill="currentColor" opacity=".55"/><rect x="3" y="13" width="8" height="8" rx="2.5" fill="currentColor" opacity=".55"/><rect x="13" y="13" width="8" height="8" rx="2.5" fill="currentColor"/></svg><span>Работы</span></button>
+    <button data-go="contacts" class="tab" aria-label="Контакты">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" fill="currentColor"/></svg><span>Контакты</span></button>
+  </nav>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>
