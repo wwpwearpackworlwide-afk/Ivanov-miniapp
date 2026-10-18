@@ -1,0 +1,13 @@
+{
+  "name": "ivanov-miniapp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Telegram Mini App для IvanovServiceBot: каталог услуг монтажа и приём заявок",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "test": "node tests/api.test.js"
+  },
+  "engines": { "node": ">=18" },
+  "license": "UNLICENSED"
+}
