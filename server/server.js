@@ -38,6 +38,12 @@ const env = {
 };
 
 const config = JSON.parse(fs.readFileSync(path.join(PUBLIC_DIR, 'config.json'), 'utf8'));
+
+/* Бот (команды, меню, пересылка сообщений). Включается, если известен публичный адрес:
+   на Render он есть автоматически в RENDER_EXTERNAL_URL, иначе задайте APP_URL. */
+const APP_URL = (process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
+const bot = (env.BOT_TOKEN && env.OWNER_CHAT_ID && APP_URL && process.env.ENABLE_BOT !== 'false')
+  ? require('./bot').createBot({ env, config, appUrl: APP_URL }) : null;
 const SERVICES = new Map(config.services.map(s => [s.id, s]));
 const EXTRAS = new Map(config.extras.map(x => [x.id, x]));
 const DEADLINES = new Set(config.deadlines);
@@ -278,8 +284,9 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
     if (url.pathname === '/api/health' && req.method === 'GET') {
-      return json(res, 200, { ok: true, configured: !!(env.BOT_TOKEN && env.OWNER_CHAT_ID) });
+      return json(res, 200, { ok: true, configured: !!(env.BOT_TOKEN && env.OWNER_CHAT_ID), bot: !!bot });
     }
+    if (bot && url.pathname === bot.WEBHOOK_PATH && req.method === 'POST') return bot.handleWebhook(req, res);
     if (url.pathname === '/api/order') {
       if (req.method === 'OPTIONS') return send(res, 204, '', corsHeaders(req));
       if (req.method !== 'POST') return json(res, 405, { ok: false, error: 'method_not_allowed' }, { Allow: 'POST' });
@@ -298,6 +305,8 @@ if (require.main === module) {
   server.listen(env.PORT, () => {
     console.log(`IvanovService Mini App: http://localhost:${env.PORT}`);
     if (!env.BOT_TOKEN || !env.OWNER_CHAT_ID) console.warn('⚠️  BOT_TOKEN или OWNER_CHAT_ID не заданы — приём заявок отключён (ответ 503). См. .env.example');
+    if (bot) bot.setup().catch(e => console.error('[bot] настройка не удалась:', e.message));
+    else console.warn('ℹ️  Бот выключен: нужен BOT_TOKEN, OWNER_CHAT_ID и публичный адрес (APP_URL или RENDER_EXTERNAL_URL)');
     if (env.ALLOW_BROWSER_ORDERS) console.warn('⚠️  ALLOW_BROWSER_ORDERS=true — принимаются заявки без подписи Telegram');
   });
 }
