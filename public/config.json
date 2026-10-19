@@ -115,19 +115,19 @@
     {
       "title": "Рилс-визитка",
       "description": "Монтаж в стиле Apple: стеклянная графика, анимированные субтитры по словам и анимация логотипа.",
-      "cover": "assets/work-vizitka.jpg",
+      "cover": "assets/work-vizitka.png",
       "url": "https://www.instagram.com/reel/DemSsdIKEcW/"
     },
     {
       "title": "«Петля»: рилс, который смотрят дважды",
       "description": "Мультяшный персонаж, полноэкранные motion-сцены и бесшовный переход конца в начало.",
-      "cover": "assets/work-petlya.jpg",
+      "cover": "assets/work-petlya.png",
       "url": "https://www.instagram.com/reel/Deo6uy9KJne/"
     },
     {
       "title": "3 ошибки монтажа",
       "description": "Разбор с мультяшным персонажем, графикой и субтитрами. Скоро в Instagram.",
-      "cover": "assets/work-3-oshibki.jpg",
+      "cover": "assets/work-3-oshibki.png",
       "url": ""
     }
   ],

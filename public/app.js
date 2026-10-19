@@ -113,8 +113,12 @@
     var p = $('#portfolioList'); p.textContent = '';
     cfg.portfolio.forEach(function (w) {
       var cover = w.cover
-        ? el('img', { class: 'work-cover', src: w.cover, alt: w.title, loading: 'lazy' })
+        ? el('img', { class: 'work-cover', src: w.cover, alt: '', loading: 'lazy' })
         : el('div', { class: 'work-cover', text: 'Здесь будет обложка' });
+      // если картинка не загрузилась — аккуратная заглушка вместо «битой» иконки
+      if (w.cover) cover.addEventListener('error', function () {
+        cover.replaceWith(el('div', { class: 'work-cover', text: w.title }));
+      });
       var hasUrl = /^https?:\/\//i.test(w.url || '');
       var btn = el('button', { class: 'btn ' + (hasUrl ? 'btn-primary' : 'btn-glass'), type: 'button', text: hasUrl ? 'Смотреть' : 'Скоро' });
       if (hasUrl) btn.addEventListener('click', function () { openExternal(w.url); });
