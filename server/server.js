@@ -111,7 +111,9 @@ function validateOrder(b, hasVerifiedUser) {
     idempotencyKey: str(b.idempotencyKey)
   };
   if (!SERVICES.has(o.serviceId)) fields.serviceId = 'Выберите услугу из списка.';
-  if (!validUrl(o.sourceUrl)) fields.sourceUrl = 'Нужна корректная ссылка, начинающаяся с https://';
+  const svc = SERVICES.get(o.serviceId);
+  const sourceOptional = !!(svc && svc.cat === 'dev');      // для ботов и мини-приложений ссылка не обязательна
+  if (o.sourceUrl ? !validUrl(o.sourceUrl) : !sourceOptional) fields.sourceUrl = 'Нужна корректная ссылка, начинающаяся с https://';
   if (o.exampleUrl && !validUrl(o.exampleUrl)) fields.exampleUrl = 'Нужна корректная ссылка или пустое поле.';
   if (o.description.length < 5 || o.description.length > 1000) fields.description = 'Описание: от 5 до 1000 символов.';
   if (!DEADLINES.has(o.deadline)) fields.deadline = 'Выберите срок из списка.';
@@ -157,7 +159,7 @@ function orderMessage(id, o, user) {
     `<b>Услуга:</b> ${esc(s.title)} (${esc(s.duration)}) — ${esc(priceText(s))}`,
     `<b>Доп. услуги:</b> ${esc(extras)}`,
     `<b>Срок:</b> ${esc(o.deadline)}`,
-    `<b>Исходники:</b> ${esc(o.sourceUrl)}`,
+    `<b>Ссылка:</b> ${o.sourceUrl ? esc(o.sourceUrl) : 'не указана'}`,
     `<b>Пример:</b> ${o.exampleUrl ? esc(o.exampleUrl) : 'не указан'}`,
     '',
     `<b>Задача:</b>\n${esc(o.description)}`,

@@ -29,10 +29,17 @@ function createBot({ env, config, appUrl }) {
   const price = s => s.price == null ? 'индивидуально' : (s.from ? 'от ' : '') + s.price.toLocaleString('ru-RU').replace(/ /g, ' ') + ' ' + config.currency;
   const sections = {
     menu: u => (B.welcome || '').replace('{name}', esc(u.first_name || 'друг')),
-    prices: () => '<b>Цены на монтаж</b>\n\n' +
-      config.services.map(s => `▸ ${esc(s.duration)} — <b>${esc(price(s))}</b>`).join('\n') +
-      '\n\n<b>Дополнительно</b> (по договорённости):\n' + config.extras.map(x => '▸ ' + esc(x.title)).join('\n') +
-      '\n\nЦена зависит только от длины готового ролика. Заказ — в Магазине 👇',
+    prices: () => {
+      const of = cat => config.services.filter(s => (s.cat || 'montage') === cat);
+      const old = s => s.oldPrice ? ` <s>${esc(s.oldPrice.toLocaleString('ru-RU').replace(/\u00a0| /g, ' '))} ${esc(config.currency)}</s>` : '';
+      const dev = of('dev'), logo = of('logo');
+      return '<b>Цены на монтаж</b>\n\n' +
+        of('montage').map(s => `▸ ${esc(s.duration)} — <b>${esc(price(s))}</b>`).join('\n') +
+        '\n\n<b>Дополнительно</b> (по договорённости):\n' + config.extras.map(x => '▸ ' + esc(x.title)).join('\n') +
+        (logo.length ? '\n\n<b>Анимация логотипа</b>\n' + logo.map(s => `▸ ${esc(s.title)} — <b>${esc(price(s))}</b>`).join('\n') : '') +
+        (dev.length ? '\n\n<b>Боты и мини-приложения</b>\n' + dev.map(s => `▸ ${esc(s.title)} — <b>${esc(price(s))}</b>${old(s)}`).join('\n') : '') +
+        '\n\nМонтаж зависит только от длины ролика. Заказ — в Магазине 👇';
+    },
     works: () => {
       const real = (config.portfolio || []).filter(w => /^https?:\/\//.test(w.url || ''));
       return '<b>Мои работы</b>\n\n' + (real.length
