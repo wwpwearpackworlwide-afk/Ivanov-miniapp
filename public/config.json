@@ -113,21 +113,21 @@
   ],
   "portfolio": [
     {
-      "title": "Ваша работа №1",
-      "description": "Заглушка. Замените название, описание, обложку и ссылку в config.json.",
-      "cover": "",
-      "url": ""
+      "title": "Рилс-визитка",
+      "description": "Монтаж в стиле Apple: стеклянная графика, анимированные субтитры по словам и анимация логотипа.",
+      "cover": "assets/work-vizitka.jpg",
+      "url": "https://www.instagram.com/reel/DemSsdIKEcW/"
     },
     {
-      "title": "Ваша работа №2",
-      "description": "Заглушка. Добавьте ссылку на ролик в Instagram, TikTok или YouTube.",
-      "cover": "",
-      "url": ""
+      "title": "«Петля»: рилс, который смотрят дважды",
+      "description": "Мультяшный персонаж, полноэкранные motion-сцены и бесшовный переход конца в начало.",
+      "cover": "assets/work-petlya.jpg",
+      "url": "https://www.instagram.com/reel/Deo6uy9KJne/"
     },
     {
-      "title": "Ваша работа №3",
-      "description": "Заглушка. Обложку положите в public/assets и укажите путь в поле cover.",
-      "cover": "",
+      "title": "3 ошибки монтажа",
+      "description": "Разбор с мультяшным персонажем, графикой и субтитрами. Скоро в Instagram.",
+      "cover": "assets/work-3-oshibki.jpg",
       "url": ""
     }
   ],
