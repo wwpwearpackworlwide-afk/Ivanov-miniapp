@@ -1,8 +1,8 @@
 {
   "brand": {
     "name": "IvanovService",
-    "tagline": "Монтаж, который продаёт",
-    "description": "Монтирую вертикальные ролики для блогеров и брендов: Reels, TikTok и YouTube Shorts. Динамика, анимированные субтитры и цветокоррекция.",
+    "tagline": "Монтаж, анимация и боты",
+    "description": "Монтаж, субтитры по словам и графика в стиле Apple. Ещё делаю анимацию логотипов и Telegram-ботов.",
     "bot": "IvanovServiceBot",
     "ownerTelegram": "ivanovv50",
     "instagram": "montazh.pro.reels"
@@ -17,7 +17,8 @@
       "price": 400,
       "from": false,
       "description": "Быстрый динамичный монтаж: сильное начало, субтитры, цветокоррекция.",
-      "popular": true
+      "popular": true,
+      "cat": "montage"
     },
     {
       "id": "s30",
@@ -26,7 +27,8 @@
       "price": 800,
       "from": false,
       "description": "Самый частый формат для Reels и TikTok: темп, субтитры по словам, графика.",
-      "popular": true
+      "popular": true,
+      "cat": "montage"
     },
     {
       "id": "s40",
@@ -35,7 +37,8 @@
       "price": 1200,
       "from": false,
       "description": "Больше времени на сюжет: перебивки, акценты и анимированные субтитры.",
-      "popular": false
+      "popular": false,
+      "cat": "montage"
     },
     {
       "id": "s60",
@@ -44,7 +47,8 @@
       "price": 1600,
       "from": false,
       "description": "Полноценный ролик до минуты: удержание внимания на всей длине.",
-      "popular": true
+      "popular": true,
+      "cat": "montage"
     },
     {
       "id": "s100",
@@ -53,7 +57,8 @@
       "price": 2000,
       "from": false,
       "description": "Длинный формат для YouTube Shorts и экспертных роликов.",
-      "popular": false
+      "popular": false,
+      "cat": "montage"
     },
     {
       "id": "s100plus",
@@ -62,7 +67,53 @@
       "price": 2400,
       "from": false,
       "description": "Длинные ролики и сложные проекты: больше сцен, графики и работы со звуком.",
+      "popular": false,
+      "cat": "montage"
+    },
+    {
+      "id": "logo",
+      "cat": "logo",
+      "title": "Анимация логотипа",
+      "duration": "анимированный логотип",
+      "price": 800,
+      "from": true,
+      "description": "Ваш логотип оживает: появление, движение и финальный кадр. Подходит для начала или конца роликов и для соцсетей.",
       "popular": false
+    },
+    {
+      "id": "bot",
+      "cat": "dev",
+      "title": "Telegram-бот",
+      "duration": "бот для Telegram",
+      "price": 2500,
+      "from": true,
+      "description": "Меню, ответы на частые вопросы и приём заявок прямо в Telegram.",
+      "popular": false
+    },
+    {
+      "id": "miniapp",
+      "cat": "dev",
+      "title": "Мини-приложение",
+      "duration": "Mini App для Telegram",
+      "price": 3000,
+      "from": true,
+      "description": "Магазин внутри Telegram: услуги, цены, портфолио и форма заказа — как это приложение.",
+      "popular": false
+    },
+    {
+      "id": "bundle",
+      "cat": "dev",
+      "title": "Бот + мини-приложение",
+      "duration": "комплект",
+      "price": 5000,
+      "oldPrice": 5500,
+      "from": false,
+      "description": "Бот с меню и заявками плюс мини-приложение: услуги, цены, портфолио.",
+      "popular": false,
+      "features": [
+        "Бот с меню, заявками и ответами клиентам",
+        "Мини-приложение: услуги, цены, портфолио"
+      ]
     }
   ],
   "extras": [
@@ -113,27 +164,70 @@
   ],
   "portfolio": [
     {
+      "id": "3sek",
+      "cat": "reels",
+      "title": "Первые 3 секунды",
+      "tag": "Рилс · с лицом",
+      "isNew": true,
+      "description": "Сплит-экран, полноэкранная графика, субтитры по словам и анимация логотипа.",
+      "cover": "assets/work-3-sekundy.png",
+      "preview": "assets/prev-3-sekundy.mp4",
+      "url": "https://www.instagram.com/reel/DerXC-BqPN2/"
+    },
+    {
+      "id": "vizitka",
+      "cat": "reels",
       "title": "Рилс-визитка",
+      "tag": "Рилс · Apple-стиль",
       "description": "Монтаж в стиле Apple: стеклянная графика, анимированные субтитры по словам и анимация логотипа.",
       "cover": "assets/work-vizitka.png",
+      "preview": "assets/prev-vizitka.mp4",
       "url": "https://www.instagram.com/reel/DemSsdIKEcW/"
     },
     {
-      "title": "«Петля»: рилс, который смотрят дважды",
+      "id": "logo",
+      "cat": "logo",
+      "title": "Анимация логотипа",
+      "tag": "Логотип · 5 сек",
+      "description": "Мой собственный логотип: два клипа и плейхед. Стоит в конце моих рилсов.",
+      "cover": "assets/work-logo.png",
+      "preview": "assets/prev-logo.mp4",
+      "url": "https://www.instagram.com/reel/DerXC-BqPN2/"
+    },
+    {
+      "id": "petlya",
+      "cat": "reels",
+      "title": "«Петля»",
+      "tag": "Рилс · motion",
       "description": "Мультяшный персонаж, полноэкранные motion-сцены и бесшовный переход конца в начало.",
       "cover": "assets/work-petlya.png",
+      "preview": "assets/prev-petlya.mp4",
       "url": "https://www.instagram.com/reel/Deo6uy9KJne/"
     },
     {
+      "id": "bot",
+      "cat": "bots",
+      "title": "@IvanovServiceBot",
+      "tag": "Бот + Mini App",
+      "description": "Мой бот и это мини-приложение: меню, прайс, портфолио и приём заявок.",
+      "cover": "assets/work-bot.png",
+      "preview": "",
+      "url": "https://t.me/IvanovServiceBot"
+    },
+    {
+      "id": "3oshibki",
+      "cat": "reels",
       "title": "3 ошибки монтажа",
+      "tag": "Рилс · разбор",
       "description": "Разбор с мультяшным персонажем, графикой и субтитрами. Скоро в Instagram.",
       "cover": "assets/work-3-oshibki.png",
+      "preview": "assets/prev-3-oshibki.mp4",
       "url": ""
     }
   ],
   "bot": {
     "shopButton": "🛍 Магазин",
-    "welcome": "<b>Монтаж, который продаёт</b>\n\nПривет, {name}! Я Иван — монтирую вертикальные ролики для блогеров и брендов: Reels, TikTok и YouTube Shorts.\n\n✦ Сильное начало, которое держит зрителя\n✦ Анимированные субтитры по словам\n✦ Переходы, графика и эффекты\n✦ Цветокоррекция, звук и музыка\n\n💰 От 400 ₽ — цена зависит только от длины ролика.\n\n👇 Открой <b>Магазин</b>, чтобы выбрать услугу и оформить заказ за минуту.",
+    "welcome": "<b>Монтаж, который продаёт</b>\n\nПривет, {name}! Я Иван — монтирую вертикальные ролики для блогеров и брендов: Reels, TikTok и YouTube Shorts.\n\n✦ Сильное начало, которое держит зрителя\n✦ Анимированные субтитры по словам\n✦ Переходы, графика и эффекты\n✦ Цветокоррекция, звук и музыка\n✦ Ещё делаю анимацию логотипов и Telegram-ботов\n\n💰 От 400 ₽ — цена зависит только от длины ролика.\n\n👇 Открой <b>Магазин</b>, чтобы выбрать услугу и оформить заказ за минуту.",
     "about": "<b>Обо мне</b>\n\nЯ Иван, монтажёр вертикальных роликов. Делаю монтаж в чистом современном стиле: динамика, анимированные субтитры, аккуратная графика и цвет.\n\nРаботаю с блогерами, экспертами и брендами — с роликами для Reels, TikTok и YouTube Shorts.",
     "howto": "<b>Как проходит заказ</b>\n\n<b>1.</b> Открываешь Магазин и выбираешь длину ролика\n<b>2.</b> Вставляешь ссылку на исходники и описываешь задачу\n<b>3.</b> Заявка сразу приходит мне — я пишу тебе в личку\n<b>4.</b> Обсуждаем детали, срок и оплату\n<b>5.</b> Получаешь готовый ролик",
     "faq": [
@@ -154,5 +248,55 @@
         "Количество правок и способ оплаты обсуждаем лично перед стартом. Дополнительные правки — по договорённости."
       ]
     ]
-  }
+  },
+  "categories": [
+    {
+      "id": "montage",
+      "title": "Монтаж",
+      "subtitle": "Цена зависит только от длины ролика",
+      "home": {
+        "title": "Монтаж рилсов",
+        "sub": "Reels, TikTok, Shorts",
+        "icon": "film"
+      }
+    },
+    {
+      "id": "logo",
+      "title": "Логотип",
+      "subtitle": "Анимация логотипа для роликов и соцсетей",
+      "home": {
+        "title": "Анимация логотипа",
+        "sub": "Для роликов и соцсетей",
+        "icon": "spark"
+      }
+    },
+    {
+      "id": "dev",
+      "title": "Разработка",
+      "subtitle": "Боты и мини-приложения для Telegram",
+      "home": {
+        "title": "Боты и Mini Apps",
+        "sub": "Для Telegram",
+        "icon": "bot"
+      }
+    }
+  ],
+  "workFilters": [
+    {
+      "id": "all",
+      "title": "Все"
+    },
+    {
+      "id": "reels",
+      "title": "Рилсы"
+    },
+    {
+      "id": "logo",
+      "title": "Логотипы"
+    },
+    {
+      "id": "bots",
+      "title": "Боты"
+    }
+  ]
 }
