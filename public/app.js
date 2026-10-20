@@ -14,9 +14,11 @@
   var idempotencyKey = newKey();
   var currentScreen = 'home';
   var successOrderId = null;                          // экран успеха доступен только после подтверждения сервером
-  var SCREENS = ['login', 'home', 'prices', 'works', 'contacts', 'order', 'success', 'error'];
+  var SCREENS = ['login', 'home', 'prices', 'works', 'contacts', 'about', 'collabs', 'howto', 'faq', 'order', 'success', 'error'];
+  var MENU_SCREENS = ['about', 'collabs', 'howto', 'faq'];
+  var menuOpen = false;
   var TAB_SCREENS = ['home', 'prices', 'works', 'contacts'];
-  var HUE = { home: 0, prices: 0, works: 14, contacts: -10, order: 0, success: 0, error: 0, login: 0 };
+  var HUE = { home: 0, prices: 0, works: 14, contacts: -10, about: -8, collabs: -22, howto: 8, faq: 4, order: 0, success: 0, error: 0, login: 0 };
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -348,7 +350,7 @@
     // монтаж
     var ml = $('#montageList'); ml.textContent = '';
     var montage = servicesOf('montage');
-    selectedMontage = (montage.filter(function (s) { return s.id === 's30'; })[0] || montage[0] || {}).id;
+    selected.montage = selectedMontage = (montage.filter(function (s) { return s.id === 's30'; })[0] || montage[0] || {}).id;
     montage.forEach(function (s, i) {
       ml.appendChild(el('button', { class: 'row reveal', style: '--d:' + i, type: 'button', role: 'radio', 'data-pick': s.id, 'aria-checked': 'false' }, [
         el('span', { class: 'ico-tile' }, [icon('clock')]),
@@ -356,15 +358,19 @@
     });
     $('#montageCount').textContent = montage.length;
     $('#extrasNote').textContent = cfg.extras.map(function (x) { return x.title; }).join(', ') + ' — по договорённости.';
-    pickMontage(selectedMontage, true);
+    pick(selectedMontage, true);
 
     // логотип
-    var lb = $('#logoBody'); lb.textContent = '';
-    servicesOf('logo').forEach(function (s) {
-      lb.appendChild(el('h3', { text: s.title })); lb.appendChild(el('p', { text: s.description }));
-      lb.appendChild(priceSpan(s, 'big-price'));
-      lb.appendChild(el('button', { class: 'btn btn-primary btn-wide', type: 'button', 'data-service': s.id, text: 'Заказать анимацию' }));
+    var lg = $('#logoList'); lg.textContent = '';
+    var logoS = servicesOf('logo');
+    selected.logo = (logoS[0] || {}).id;
+    logoS.forEach(function (s, i) {
+      lg.appendChild(el('button', { class: 'row reveal', style: '--d:' + i, type: 'button', role: 'radio', 'data-pick': s.id, 'aria-checked': 'false' }, [
+        el('span', { class: 'ico-tile' }, [icon('clock')]),
+        el('span', { class: 'rt' }, [el('b', { text: s.duration }), el('small', { text: s.description })]), priceSpan(s)]));
     });
+    $('#logoCount').textContent = logoS.length;
+    pick(selected.logo, true);
 
     // разработка
     var dev = servicesOf('dev'), bundle = dev.filter(function (s) { return s.oldPrice; })[0];
@@ -401,6 +407,36 @@
     });
     rebuildWorks(cfg.portfolio[0] && cfg.portfolio[0].id);
 
+    // меню и новые разделы
+    $('#drOwner').textContent = b.ownerName || 'IvanovService';
+    $('#ownerName').textContent = b.ownerName || 'IvanovService';
+    $('#drWorks').textContent = cfg.portfolio.length;
+    $('#drCollabs').textContent = (cfg.collabs || []).length;
+    $$('#drawer .dr-head, #drawer .dr-lbl, #drawer .row, #drawer .dr-social, #drawer .dr-cta').forEach(function (n, i) { n.style.setProperty('--i', i); });
+    var pages = cfg.pages || {};
+    var at = $('#aboutText'); at.textContent = '';
+    (pages.about || []).forEach(function (t, i) { at.appendChild(el('p', { class: 'about-p reveal', style: '--d:' + (i + 1), text: t })); });
+    var hl = $('#howtoList'); hl.textContent = '';
+    (pages.howto || []).forEach(function (st, i) {
+      hl.appendChild(el('li', { class: 'step reveal', style: '--d:' + i }, [el('span', { class: 'n', text: String(i + 1) }), el('span', { class: 'tx' }, [el('b', { text: st[0] }), el('small', { text: st[1] })])]));
+    });
+    var fq = $('#faqList'); fq.textContent = '';
+    ((cfg.bot && cfg.bot.faq) || []).forEach(function (qa, i) {
+      fq.appendChild(el('details', { class: 'qa glass reveal', style: '--d:' + i }, [el('summary', { text: qa[0] }), el('p', { text: qa[1] })]));
+    });
+    var clist = $('#collabList'); clist.textContent = '';
+    (cfg.collabs || []).forEach(function (cb, i) {
+      var v = el('video', { 'aria-label': 'Анимация коллаборации: ' + cb.name });
+      v.muted = true; v.loop = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.setAttribute('muted', ''); v.preload = 'metadata';
+      if (cb.poster) v.poster = cb.poster;
+      v.setAttribute('data-src', cb.video || '');
+      var kids = [el('div', { class: 'vid' }, [v]), el('div', { class: 'body' }, [
+        el('h3', { text: cb.name }), cb.sub ? el('p', { class: 'sub', text: cb.sub }) : null,
+        (cb.did && cb.did.length) ? el('div', { class: 'tags' }, cb.did.map(function (d) { return el('span', { class: 'pill', text: d }); })) : null,
+        /^https?:\/\//.test(cb.url || '') ? el('button', { class: 'btn btn-primary', type: 'button', 'data-url': cb.url, text: 'Смотреть ролик' }) : null])];
+      clist.appendChild(el('article', { class: 'collab glass reveal', style: '--d:' + i }, kids));
+    });
+
     // контакты
     $('#cTelegram').href = 'https://t.me/' + b.ownerTelegram; $('#cTelegramText').textContent = '@' + b.ownerTelegram;
     $('#cBot').href = 'https://t.me/' + b.bot; $('#cBotText').textContent = '@' + b.bot;
@@ -424,10 +460,15 @@
     observe();
   }
 
-  function pickMontage(id, silent) {
-    selectedMontage = id;
-    $$('#montageList .row').forEach(function (r) { var on = r.getAttribute('data-pick') === id; r.classList.toggle('on', on); r.setAttribute('aria-checked', on ? 'true' : 'false'); r.querySelector('.ico-tile').replaceChildren(icon(on ? 'check' : 'clock')); });
-    var s = svc(id); $('#priceCtaBtn').textContent = 'Оформить · ' + formatPrice(s);
+  var selected = { montage: null, logo: null };
+  function updateCta() {
+    var s = svc(selected[currentCat] || selected.montage);
+    if (s) $('#priceCtaBtn').textContent = 'Оформить · ' + formatPrice(s);
+  }
+  function pick(id, silent) {
+    var cat = catOf(id); selected[cat] = id; if (cat === 'montage') selectedMontage = id;
+    $$('#' + (cat === 'logo' ? 'logoList' : 'montageList') + ' .row').forEach(function (r) { var on = r.getAttribute('data-pick') === id; r.classList.toggle('on', on); r.setAttribute('aria-checked', on ? 'true' : 'false'); r.querySelector('.ico-tile').replaceChildren(icon(on ? 'check' : 'clock')); });
+    updateCta();
     if (!silent) haptic('select');
   }
 
@@ -444,7 +485,8 @@
       if (on && animate) { p.style.setProperty('--dx', (dir * 28) + 'px'); p.style.animation = 'none'; void p.offsetWidth; p.style.animation = ''; observe(p); $$('[data-count]', p).forEach(function (n) { n.__counted = false; if (n.closest('.reveal') === null || n.closest('.reveal').classList.contains('in')) countUp(n); }); }
     });
     var c = cfg.categories[i]; $('#catSub').textContent = c.subtitle;
-    $('#priceCta').hidden = id !== 'montage';
+    $('#priceCta').hidden = id === 'dev';
+    updateCta();
     document.documentElement.style.setProperty('--hue', (id === 'logo' ? -18 : id === 'dev' ? 16 : 0) + 'deg');
     var v = $('#logoVideo'); if (id === 'logo' && currentScreen === 'prices' && !reduceMotion) { var p = v.play(); if (p && p.catch) p.catch(function () {}); } else v.pause();
   }
@@ -460,6 +502,29 @@
     var ef = $('#extrasField'); ef.hidden = cat !== 'montage';
     if (cat !== 'montage') $$('input[name="extras"]', ef).forEach(function (c) { c.checked = false; });
     setError('sourceUrl', '');
+  }
+
+  /* ---------- меню ☰ ---------- */
+  function setMenu(open) {
+    if (open === menuOpen) return;
+    menuOpen = open;
+    document.body.classList.toggle('menu-open', open);
+    var d = $('#drawer');
+    d.setAttribute('aria-hidden', open ? 'false' : 'true');
+    if (open) { d.removeAttribute('inert'); haptic('light'); setTimeout(function () { var c = $('.dr-close'); if (c) c.focus({ preventScroll: true }); }, 50); }
+    else { d.setAttribute('inert', ''); }
+    syncTelegramButtons();
+  }
+  function syncMenuActive() {
+    $$('.dr-item').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-go') === currentScreen); });
+  }
+  function playCollabs(on) {
+    $$('#collabList video').forEach(function (v) {
+      if (on && !reduceMotion) {
+        if (!v.getAttribute('src') && v.getAttribute('data-src')) v.src = v.getAttribute('data-src');
+        var p = v.play(); if (p && p.catch) p.catch(function () {});
+      } else v.pause();
+    });
   }
 
   /* =====================================================================
@@ -479,6 +544,8 @@
     var ti = TAB_SCREENS.indexOf(name);
     $$('.tab').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-go') === name); });
     if (ti >= 0) $('.tab-ind').style.transform = 'translateX(' + (ti * 100) + '%)';
+    $('.tabbar').classList.toggle('no-tab', ti < 0);
+    setMenu(false); syncMenuActive(); playCollabs(name === 'collabs');
     document.body.classList.toggle('hide-tabbar', name === 'order' || name === 'success' || name === 'error' || name === 'login');
     document.body.classList.toggle('on-login', name === 'login');
     if (name !== 'prices') document.documentElement.style.setProperty('--hue', (HUE[name] || 0) + 'deg');
@@ -507,7 +574,7 @@
     if (!tg) return;
     try {
       if (tg.BackButton && tg.isVersionAtLeast('6.1')) {
-        if (currentScreen === 'home') tg.BackButton.hide(); else tg.BackButton.show();
+        if (currentScreen === 'home' && !menuOpen) tg.BackButton.hide(); else tg.BackButton.show();
       }
       if (tg.MainButton && inTelegram) {
         if (currentScreen === 'order') {
@@ -530,6 +597,7 @@
       document.body.setAttribute('data-scheme', tg.colorScheme || 'dark');
       tg.onEvent('themeChanged', function () { document.body.setAttribute('data-scheme', tg.colorScheme || 'dark'); });
       if (tg.BackButton) tg.BackButton.onClick(function () {
+        if (menuOpen) { setMenu(false); return; }
         if (currentScreen === 'success') go('home', { replace: true });
         else if (history.length > 1) history.back();
         else go('home', { replace: true });
@@ -681,12 +749,12 @@
   function bind() {
     document.addEventListener('click', function (e) {
       if (!cfg) return;
-      var t = e.target.closest('[data-go],[data-action],[data-service],[data-cat],[data-seg],[data-pick],[data-work],[data-filter],.tile');
+      var t = e.target.closest('[data-go],[data-action],[data-service],[data-cat],[data-seg],[data-pick],[data-work],[data-filter],[data-url],.tile');
       if (!t) return;
       if (t.hasAttribute('data-service')) { haptic('light'); openOrder(t.getAttribute('data-service')); return; }
       if (t.hasAttribute('data-cat')) { haptic('light'); currentCat = t.getAttribute('data-cat'); go('prices'); return; }
       if (t.hasAttribute('data-seg')) { haptic('select'); selectCat(t.getAttribute('data-seg'), true); return; }
-      if (t.hasAttribute('data-pick')) { pickMontage(t.getAttribute('data-pick')); return; }
+      if (t.hasAttribute('data-pick')) { pick(t.getAttribute('data-pick')); return; }
       if (t.hasAttribute('data-filter')) {
         haptic('select'); works.filter = t.getAttribute('data-filter');
         $$('#workFilters .chip').forEach(function (c) { c.setAttribute('aria-selected', c === t ? 'true' : 'false'); });
@@ -702,9 +770,14 @@
         if (i >= 0 && i !== works.idx) selectWork(i, i > works.idx ? 1 : -1);
         $('#stage').scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' }); return;
       }
+      if (t.hasAttribute('data-url')) { var u = t.getAttribute('data-url'); if (/^https?:\/\//.test(u)) openExternal(u); return; }
       var a = t.getAttribute('data-action');
+      if (a === 'menu') { setMenu(true); return; }
+      if (a === 'menu-close') { setMenu(false); return; }
+      if (a === 'insta') { openExternal('https://www.instagram.com/' + cfg.brand.instagram + '/'); return; }
+      if (a === 'channel') { if (cfg.brand.channel) openTelegramPath(cfg.brand.channel); return; }
       if (a === 'order') { haptic('light'); openOrder(selectedMontage); return; }
-      if (a === 'order-selected') { haptic('light'); openOrder(selectedMontage); return; }
+      if (a === 'order-selected') { haptic('light'); openOrder(selected[currentCat] || selectedMontage); return; }
       if (a === 'telegram') { openTelegramPath(cfg.brand.ownerTelegram); return; }
       if (a === 'open-bot') { openTelegramPath(cfg.brand.bot); return; }
       if (a === 'tg-login') { haptic('light'); openTelegramPath(cfg.brand.bot + '/app'); return; }
@@ -732,6 +805,10 @@
     $('#closeBtn').addEventListener('click', function () {
       if (inTelegram && tg.close) tg.close(); else go('home', { replace: true });
     });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && menuOpen) setMenu(false); });
+    var dx0 = null;
+    $('#drawer').addEventListener('pointerdown', function (e) { dx0 = e.clientX; });
+    $('#drawer').addEventListener('pointerup', function (e) { if (dx0 !== null && dx0 - e.clientX > 60) setMenu(false); dx0 = null; });
     window.addEventListener('scroll', function () { if (currentScreen === 'home' && reduceMotion) kick(); }, { passive: true });
     bindStage();
   }
@@ -749,7 +826,7 @@
       render();
       var start = location.hash.slice(1);
       // экран успеха нельзя открыть по ссылке — только после ответа сервера
-      if (start === 'success' || start === 'error' || TAB_SCREENS.concat('order').indexOf(start) < 0) start = '';
+      if (start === 'success' || start === 'error' || TAB_SCREENS.concat('order', MENU_SCREENS).indexOf(start) < 0) start = '';
       if (!start) start = (!inTelegram && !store.get('guest')) ? 'login' : 'home';
       if (start === 'login') logos.forEach(function (L) { if (L.slot.classList.contains('login-logo')) L.intro = performance.now(); });
       go(start, { replace: true });

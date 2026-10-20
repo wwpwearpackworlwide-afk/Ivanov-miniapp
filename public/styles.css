@@ -275,6 +275,83 @@ body.hide-tabbar .tabbar{transform:translate(-50%,130%);opacity:0;pointer-events
 
 @media (max-width:350px){:root{--pad:14px}.screen-title{font-size:28px}.hero-title{font-size:24px}.pr{font-size:14px}.rt b{font-size:15px}.stage{height:400px}}
 
+
+/* ---------- меню ☰ ---------- */
+.title-row{display:flex;align-items:center;gap:12px;margin-top:2px}
+.title-row .screen-title{margin-top:0}
+.menu-btn{color:var(--chalk)}
+.menu-btn svg{width:24px;height:24px}
+.scrim{position:fixed;inset:0;z-index:40;background:rgba(3,6,18,.55);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .4s var(--out)}
+.drawer{position:fixed;left:0;top:0;bottom:0;z-index:41;width:min(320px,86vw);overflow-y:auto;overscroll-behavior:contain;
+  padding:calc(18px + env(safe-area-inset-top,0px)) 16px calc(20px + var(--safe-b));border-radius:0 34px 34px 0;
+  background:linear-gradient(160deg,rgba(30,40,82,.94),rgba(9,14,38,.97));border-right:1px solid var(--line);box-shadow:24px 0 70px rgba(0,0,0,.55);
+  transform:translateX(-106%);transition:transform .55s var(--out)}
+body.menu-open .scrim{opacity:1;pointer-events:auto}
+body.menu-open .drawer{transform:none}
+body.menu-open{overflow:hidden}
+.dr-head{display:flex;align-items:center;gap:12px;padding:0 4px}
+.dr-head img{width:52px;height:52px;border-radius:16px;flex:none}
+.dr-head small{display:block;font-size:12px;color:var(--steel)}
+.dr-head b{display:block;font-size:19px;margin-top:2px}
+.dr-close{width:36px;height:36px;border-radius:12px;font-size:20px}
+.dr-sep{height:1px;background:var(--line);margin:14px 4px}
+.dr-lbl{margin:0 6px 8px}
+.dr-item{min-height:52px;padding:8px 10px}
+.dr-item .ico-tile{width:36px;height:36px;border-radius:12px}
+.dr-item .ico-tile svg{width:19px;height:19px}
+.dr-item .rt b{font-size:15px}
+.dr-item.on{background:linear-gradient(135deg,var(--blue),#3d77ff);box-shadow:0 10px 26px rgba(47,107,255,.45),inset 0 1px 0 rgba(255,255,255,.35)}
+.dr-item.on .ico-tile{background:rgba(255,255,255,.2);color:#fff}
+.badge{height:22px;min-width:22px;border-radius:11px;padding:0 8px;font-size:11px;display:inline-flex;align-items:center;justify-content:center}
+.drawer .row,.drawer .dr-social,.drawer .dr-cta,.drawer .dr-head,.drawer .dr-lbl{opacity:0;transform:translateX(-18px);transition:opacity .4s var(--out),transform .5s var(--out)}
+body.menu-open .drawer .row,body.menu-open .drawer .dr-social,body.menu-open .drawer .dr-cta,body.menu-open .drawer .dr-head,body.menu-open .drawer .dr-lbl{opacity:1;transform:none;transition-delay:calc(var(--i,0) * 40ms + 120ms)}
+.dr-social{border-radius:20px;padding:6px;display:flex;justify-content:space-around}
+.dr-soc{width:60px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;color:var(--chalk);transition:transform .25s var(--spring),background .3s}
+.dr-soc:active{transform:scale(.9);background:rgba(255,255,255,.08)}
+.dr-soc svg{width:22px;height:22px}
+.dr-cta{width:100%;margin-top:14px;border-radius:24px;padding:16px;text-align:center;display:flex;flex-direction:column;align-items:center}
+.dr-cta .plus{width:50px;height:50px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;box-shadow:0 10px 24px rgba(47,107,255,.55);transition:transform .3s var(--spring)}
+.dr-cta:active .plus{transform:scale(.88) rotate(90deg)}
+.dr-cta .plus svg{width:24px;height:24px}
+.dr-cta b{font-size:16px;margin-top:10px}
+.dr-cta small{font-size:12px;color:var(--steel);margin-top:3px}
+.dr-cta small span{color:var(--gold)}
+.tabbar.no-tab .tab-ind{opacity:0}
+.tab-ind{transition:transform .55s var(--spring),opacity .3s}
+
+/* ---------- обо мне / как заказать / вопросы ---------- */
+.about-card{display:flex;align-items:center;gap:16px;border-radius:26px;padding:16px;margin-top:18px}
+.about-card img{width:72px;height:72px;border-radius:22px}
+.about-card b{display:block;font-size:20px}
+.about-card small{display:block;font-size:13px;color:var(--steel);margin-top:4px}
+.about-p{font-size:15px;line-height:1.55;color:#d5d9e3;margin-top:14px;padding:0 4px}
+.steps{list-style:none;margin-top:18px;position:relative}
+.steps:before{content:"";position:absolute;left:26px;top:30px;bottom:30px;width:2px;background:linear-gradient(var(--blue),rgba(47,107,255,.1))}
+.step{display:flex;gap:14px;align-items:flex-start;padding:10px 0}
+.step .n{width:54px;height:54px;border-radius:18px;flex:none;display:flex;align-items:center;justify-content:center;font-size:20px;background:linear-gradient(135deg,#3d77ff,var(--blue));box-shadow:0 10px 24px rgba(47,107,255,.4);position:relative;z-index:1}
+.step:last-child .n{background:linear-gradient(135deg,#F0C35C,#D9A33A);color:#1a1204;box-shadow:0 10px 24px rgba(232,184,74,.35)}
+.step .tx{padding-top:6px}
+.step b{display:block;font-size:17px}
+.step small{display:block;font-size:13.5px;color:var(--steel);margin-top:4px;line-height:1.45}
+.faq{margin-top:18px;display:grid;gap:10px}
+.qa{border-radius:22px;overflow:hidden}
+.qa summary{list-style:none;display:flex;align-items:center;gap:12px;padding:16px 18px;font-size:16px;cursor:pointer}
+.qa summary::-webkit-details-marker{display:none}
+.qa summary:after{content:"+";margin-left:auto;font-size:24px;color:var(--blue);transition:transform .35s var(--spring)}
+.qa[open] summary:after{transform:rotate(45deg)}
+.qa p{padding:0 18px 16px;font-size:14px;color:#c9cdd6;line-height:1.5;animation:paneIn .4s var(--out)}
+
+/* ---------- коллаборации ---------- */
+.collab{border-radius:28px;overflow:hidden;margin-top:16px}
+.collab .vid{aspect-ratio:1;background:#0b0b0d;position:relative}
+.collab video{width:100%;height:100%;object-fit:cover}
+.collab .body{padding:16px 18px 18px}
+.collab h3{font-size:19px;line-height:1.25}
+.collab .sub{font-size:13px;color:var(--steel);margin-top:4px}
+.collab .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.collab .tags .pill{background:rgba(47,107,255,.25)}
+.collab .btn{width:100%;margin-top:14px;min-height:46px}
+
 /* ---------- уважение к настройке «уменьшить движение» ---------- */
 @media (prefers-reduced-motion:reduce){
   *,*:before,*:after{animation:none!important;transition:none!important}

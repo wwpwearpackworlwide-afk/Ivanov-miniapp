@@ -48,12 +48,10 @@
     <!-- ГЛАВНАЯ -->
     <section class="screen" id="screen-home" data-screen="home" hidden>
       <header class="hello">
-        <div class="avatar" id="avatar" aria-hidden="true">I</div>
+        <button class="icon-btn glass menu-btn" data-action="menu" type="button" aria-label="Открыть меню" aria-controls="drawer"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg></button>
         <div class="hello-text"><small id="greet">Добро пожаловать</small><b id="userName">IvanovService</b></div>
         <span id="envBadge" class="env-badge" hidden>браузер</span>
-        <button class="icon-btn glass" data-action="telegram" aria-label="Написать мне в Telegram" type="button">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chat"/></svg>
-        </button>
+        <div class="avatar" id="avatar" aria-hidden="true">I</div>
       </header>
 
       <div class="hero glass">
@@ -83,7 +81,7 @@
 
     <!-- ЦЕНЫ -->
     <section class="screen" id="screen-prices" data-screen="prices" hidden>
-      <h1 class="screen-title">Цены</h1>
+      <div class="title-row"><button class="icon-btn glass menu-btn" data-action="menu" type="button" aria-label="Открыть меню" aria-controls="drawer"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg></button><h1 class="screen-title">Цены</h1></div>
       <p class="screen-sub" id="catSub"></p>
       <div class="seg glass" id="seg" role="tablist"><i class="seg-thumb" aria-hidden="true"></i></div>
 
@@ -96,8 +94,9 @@
       <div class="cat-pane" data-pane="logo" hidden>
         <div class="logo-card glass">
           <div class="logo-video"><video id="logoVideo" src="assets/prev-logo.mp4" poster="assets/prev-logo.jpg" muted loop playsinline preload="metadata" aria-label="Пример анимации логотипа"></video></div>
-          <div class="logo-body" id="logoBody"></div>
         </div>
+        <div class="lbl"><span>Длина анимации: <b id="logoCount">3</b></span></div>
+        <div class="card glass list" id="logoList" role="radiogroup" aria-label="Длина анимации"></div>
       </div>
 
       <div class="cat-pane" data-pane="dev" hidden>
@@ -117,7 +116,7 @@
 
     <!-- РАБОТЫ -->
     <section class="screen" id="screen-works" data-screen="works" hidden>
-      <h1 class="screen-title">Работы</h1>
+      <div class="title-row"><button class="icon-btn glass menu-btn" data-action="menu" type="button" aria-label="Открыть меню" aria-controls="drawer"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg></button><h1 class="screen-title">Работы</h1></div>
       <div class="chips" id="workFilters" role="tablist"></div>
 
       <div class="stage" id="stage" aria-roledescription="карусель" aria-label="Работы">
@@ -150,7 +149,7 @@
 
     <!-- КОНТАКТЫ -->
     <section class="screen" id="screen-contacts" data-screen="contacts" hidden>
-      <h1 class="screen-title">Контакты</h1>
+      <div class="title-row"><button class="icon-btn glass menu-btn" data-action="menu" type="button" aria-label="Открыть меню" aria-controls="drawer"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg></button><h1 class="screen-title">Контакты</h1></div>
       <p class="screen-sub">Пишите по любым вопросам — монтаж, логотип или бот.</p>
       <div class="card glass list">
         <a class="row contact reveal" id="cTelegram" target="_blank" rel="noopener">
@@ -167,6 +166,41 @@
         </a>
       </div>
       <button class="btn btn-primary btn-wide reveal" style="--d:3" data-action="order" type="button">Оформить заказ</button>
+    </section>
+
+    <!-- ОБО МНЕ -->
+    <section class="screen" id="screen-about" data-screen="about" hidden>
+      <div class="title-row"><button class="icon-btn glass menu-btn" data-action="menu" type="button" aria-label="Открыть меню" aria-controls="drawer"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg></button><h1 class="screen-title">Обо мне</h1></div>
+      <div class="about-card glass reveal">
+        <img src="assets/icon.png" alt="" width="72" height="72">
+        <div><b id="ownerName"></b><small>Монтаж · логотипы · боты</small></div>
+      </div>
+      <div id="aboutText"></div>
+      <button class="btn btn-primary btn-wide reveal" data-action="order" type="button">Заказать монтаж</button>
+    </section>
+
+    <!-- КОЛЛАБОРАЦИИ -->
+    <section class="screen" id="screen-collabs" data-screen="collabs" hidden>
+      <div class="title-row"><button class="icon-btn glass menu-btn" data-action="menu" type="button" aria-label="Открыть меню" aria-controls="drawer"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg></button><h1 class="screen-title">Коллаборации</h1></div>
+      <p class="screen-sub">С кем я уже работал</p>
+      <div id="collabList"></div>
+    </section>
+
+    <!-- КАК ЗАКАЗАТЬ -->
+    <section class="screen" id="screen-howto" data-screen="howto" hidden>
+      <div class="title-row"><button class="icon-btn glass menu-btn" data-action="menu" type="button" aria-label="Открыть меню" aria-controls="drawer"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg></button><h1 class="screen-title">Как заказать</h1></div>
+      <p class="screen-sub">Пять шагов — от заявки до готового ролика.</p>
+      <ol class="steps" id="howtoList"></ol>
+      <button class="btn btn-primary btn-wide reveal" data-go="prices" type="button">Выбрать услугу</button>
+    </section>
+
+    <!-- ВОПРОСЫ -->
+    <section class="screen" id="screen-faq" data-screen="faq" hidden>
+      <div class="title-row"><button class="icon-btn glass menu-btn" data-action="menu" type="button" aria-label="Открыть меню" aria-controls="drawer"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg></button><h1 class="screen-title">Вопросы</h1></div>
+      <div class="faq" id="faqList"></div>
+      <button class="btn btn-glass btn-wide reveal" data-action="telegram" type="button">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-tg"/></svg>Не нашли ответ? Напишите мне
+      </button>
     </section>
 
     <!-- ФОРМА ЗАКАЗА -->
@@ -252,6 +286,37 @@
     </section>
   </main>
 
+  <!-- МЕНЮ (☰) -->
+  <div class="scrim" id="scrim" data-action="menu-close"></div>
+  <aside class="drawer" id="drawer" aria-label="Меню" aria-hidden="true" inert>
+    <div class="dr-head">
+      <img src="assets/icon.png" alt="" width="52" height="52">
+      <div class="rt"><small>Монтаж · лого · боты</small><b id="drOwner">IvanovService</b></div>
+      <button class="icon-btn glass dr-close" data-action="menu-close" type="button" aria-label="Закрыть меню">‹</button>
+    </div>
+    <div class="dr-sep"></div>
+    <div class="lbl dr-lbl"><span>Меню: <b>6</b></span></div>
+    <nav class="dr-list">
+      <button class="row dr-item" data-go="home" type="button"><span class="ico-tile"><svg viewBox="0 0 24 24"><use href="#i-home"/></svg></span><span class="rt"><b>Главная</b></span></button>
+      <button class="row dr-item" data-go="about" type="button"><span class="ico-tile"><svg viewBox="0 0 24 24"><use href="#i-user"/></svg></span><span class="rt"><b>Обо мне</b></span></button>
+      <button class="row dr-item" data-go="collabs" type="button"><span class="ico-tile c-gold"><svg viewBox="0 0 24 24"><use href="#i-hand"/></svg></span><span class="rt"><b>Коллаборации</b></span><span class="badge gold" id="drCollabs">0</span></button>
+      <button class="row dr-item" data-go="howto" type="button"><span class="ico-tile"><svg viewBox="0 0 24 24"><use href="#i-steps"/></svg></span><span class="rt"><b>Как заказать</b></span></button>
+      <button class="row dr-item" data-go="faq" type="button"><span class="ico-tile"><svg viewBox="0 0 24 24"><use href="#i-q"/></svg></span><span class="rt"><b>Вопросы</b></span></button>
+      <button class="row dr-item" data-go="works" type="button"><span class="ico-tile"><svg viewBox="0 0 24 24"><use href="#i-grid"/></svg></span><span class="rt"><b>Работы</b></span><span class="badge blue" id="drWorks">0</span></button>
+    </nav>
+    <div class="dr-sep"></div>
+    <div class="lbl dr-lbl"><span>Связь: <b>3</b></span></div>
+    <div class="dr-social glass">
+      <button class="dr-soc" data-action="telegram" type="button" aria-label="Telegram"><svg viewBox="0 0 24 24"><use href="#i-tg"/></svg></button>
+      <button class="dr-soc" data-action="insta" type="button" aria-label="Instagram"><svg viewBox="0 0 24 24"><use href="#i-insta"/></svg></button>
+      <button class="dr-soc" data-action="channel" type="button" aria-label="Telegram-канал"><svg viewBox="0 0 24 24"><use href="#i-chan"/></svg></button>
+    </div>
+    <button class="dr-cta glass" data-action="order" type="button">
+      <span class="plus"><svg viewBox="0 0 24 24"><use href="#i-plus"/></svg></span>
+      <b>Заказать монтаж</b><small>Заявка займёт <span>одну минуту</span></small>
+    </button>
+  </aside>
+
   <nav class="tabbar" aria-label="Навигация">
     <i class="tab-ind" aria-hidden="true"></i>
     <button data-go="home" class="tab" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-home"/></svg><span>Главная</span></button>
@@ -280,6 +345,13 @@
     <symbol id="i-color" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></symbol>
     <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 18h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="i-logo" viewBox="0 0 64 40"><rect x="2" y="12" width="26" height="18" rx="6" fill="rgba(242,244,248,.75)"/><rect x="34" y="12" width="28" height="18" rx="6" fill="#2F6BFF"/><rect x="30" y="6" width="3" height="30" rx="1.5" fill="#F2F4F8"/><path d="M26.5 2h10v5l-5 4-5-4z" fill="#F2F4F8"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.5 4.5-6.5 8-6.5s7 2 8 6.5" stroke-linecap="round"/></g></symbol>
+    <symbol id="i-hand" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11l4-4 3 3 3-3 4 4-7 7z"/><path d="M3 12l4-1M21 12l-4-1"/></g></symbol>
+    <symbol id="i-q" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.5"/></g><circle cx="12" cy="17" r="1.2" fill="currentColor"/></symbol>
+    <symbol id="i-steps" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.5"/><circle cx="4.5" cy="12" r="1.5"/><circle cx="4.5" cy="18" r="1.5"/></g></symbol>
+    <symbol id="i-chan" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 10v4h3l6 4V6L7 10z"/><path d="M17 9a4 4 0 0 1 0 6" stroke-linecap="round"/></g></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></symbol>
   </svg>
   <script src="app.js"></script>
 </body>
