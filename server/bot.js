@@ -36,7 +36,7 @@ function createBot({ env, config, appUrl }) {
       return '<b>Цены на монтаж</b>\n\n' +
         of('montage').map(s => `▸ ${esc(s.duration)} — <b>${esc(price(s))}</b>`).join('\n') +
         '\n\n<b>Дополнительно</b> (по договорённости):\n' + config.extras.map(x => '▸ ' + esc(x.title)).join('\n') +
-        (logo.length ? '\n\n<b>Анимация логотипа</b>\n' + logo.map(s => `▸ ${esc(s.title)} — <b>${esc(price(s))}</b>`).join('\n') : '') +
+        (logo.length ? '\n\n<b>Анимация логотипа</b>\n' + logo.map(s => `▸ ${esc(s.duration)} — <b>${esc(price(s))}</b>`).join('\n') : '') +
         (dev.length ? '\n\n<b>Боты и мини-приложения</b>\n' + dev.map(s => `▸ ${esc(s.title)} — <b>${esc(price(s))}</b>${old(s)}`).join('\n') : '') +
         '\n\nМонтаж зависит только от длины ролика. Заказ — в Магазине 👇';
     },
