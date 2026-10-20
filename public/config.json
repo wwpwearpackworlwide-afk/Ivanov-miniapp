@@ -186,11 +186,21 @@
   ],
   "portfolio": [
     {
+      "id": "3oshibki",
+      "cat": "reels",
+      "title": "3 ошибки монтажа",
+      "tag": "Рилс · разбор",
+      "description": "Разбор с мультяшным персонажем, графикой и субтитрами.",
+      "cover": "assets/work-3-oshibki.png",
+      "preview": "assets/prev-3-oshibki.mp4",
+      "url": "https://www.instagram.com/reel/DesvQGRqqrs/",
+      "isNew": true
+    },
+    {
       "id": "3sek",
       "cat": "reels",
       "title": "Первые 3 секунды",
       "tag": "Рилс · с лицом",
-      "isNew": true,
       "description": "Сплит-экран, полноэкранная графика, субтитры по словам и анимация логотипа.",
       "cover": "assets/work-3-sekundy.png",
       "preview": "assets/prev-3-sekundy.mp4",
@@ -235,16 +245,6 @@
       "cover": "assets/work-bot.png",
       "preview": "assets/prev-bot.mp4",
       "url": "https://t.me/IvanovServiceBot"
-    },
-    {
-      "id": "3oshibki",
-      "cat": "reels",
-      "title": "3 ошибки монтажа",
-      "tag": "Рилс · разбор",
-      "description": "Разбор с мультяшным персонажем, графикой и субтитрами. Скоро в Instagram.",
-      "cover": "assets/work-3-oshibki.png",
-      "preview": "assets/prev-3-oshibki.mp4",
-      "url": ""
     }
   ],
   "bot": {
