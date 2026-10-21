@@ -36,11 +36,12 @@
         <div class="logo3d-slot login-logo" aria-hidden="true"></div>
         <h1 class="login-title reveal">IvanovService</h1>
         <p class="login-sub reveal" style="--d:1">Монтаж, анимация и боты</p>
+        <ul class="login-points reveal" style="--d:2"><li>Цены и примеры работ</li><li>Заявка за одну минуту</li><li>Статус заказа в профиле</li></ul>
         <div class="login-actions">
           <button class="btn btn-primary btn-wide reveal" style="--d:2" data-action="tg-login" type="button">
             <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-tg"/></svg>Войти через Telegram
           </button>
-          <p class="login-note reveal" style="--d:3">Вход в один тап — без паролей и почты. Откроется приложение в Telegram.</p>
+          <p class="login-note reveal" style="--d:3">Без паролей: приложение откроется в Telegram.</p>
           <button class="link-btn reveal" style="--d:4" data-action="guest" type="button">Посмотреть без входа</button>
         </div>
       </div>
@@ -52,7 +53,7 @@
         <button class="icon-btn glass menu-btn" data-action="menu" type="button" aria-label="Открыть меню" aria-controls="drawer"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg></button>
         <div class="hello-text"><small id="greet">Добро пожаловать</small><b id="userName">IvanovService</b></div>
         <span id="envBadge" class="env-badge" hidden>браузер</span>
-        <div class="avatar" id="avatar" aria-hidden="true">I</div>
+        <button class="avatar" id="avatar" data-go="profile" type="button" aria-label="Мой профиль и заказы">I</button>
       </header>
 
       <div class="hero glass">
@@ -66,11 +67,14 @@
         </div>
       </div>
 
-      <div class="lbl reveal"><span>Услуги: <b id="catCount">3</b></span></div>
+      <div class="lbl reveal"><span>Услуги</span></div>
       <div class="card glass list reveal" id="catList"></div>
 
-      <div class="lbl reveal"><span>Работы: <b id="workCount">0</b></span><button class="link-btn" data-go="works" type="button">Все →</button></div>
+      <div class="lbl reveal"><span>Работы</span><button class="link-btn" data-go="works" type="button">Все →</button></div>
       <div class="hscroll reveal" id="homeWorks"></div>
+
+      <div class="lbl reveal" id="reviewsLbl"><span>Отзывы</span></div>
+      <div id="reviewList"></div>
 
       <div class="lbl reveal"><span>Что входит в монтаж</span></div>
       <div class="features" id="featuresList"></div>
@@ -87,7 +91,7 @@
       <div class="seg glass" id="seg" role="tablist"><i class="seg-thumb" aria-hidden="true"></i></div>
 
       <div class="cat-pane" data-pane="montage">
-        <div class="lbl"><span>Длина ролика: <b id="montageCount">6</b></span></div>
+        <div class="lbl"><span>Длина ролика</span></div>
         <div class="card glass list" id="montageList" role="radiogroup" aria-label="Длина ролика"></div>
         <p class="note" id="extrasNote"></p>
       </div>
@@ -96,13 +100,13 @@
         <div class="logo-card glass">
           <div class="logo-video"><video id="logoVideo" src="assets/prev-logo.mp4" poster="assets/prev-logo.jpg" muted loop playsinline preload="metadata" aria-label="Пример анимации логотипа"></video></div>
         </div>
-        <div class="lbl"><span>Длина анимации: <b id="logoCount">3</b></span></div>
+        <div class="lbl"><span>Длина анимации</span></div>
         <div class="card glass list" id="logoList" role="radiogroup" aria-label="Длина анимации"></div>
       </div>
 
       <div class="cat-pane" data-pane="dev" hidden>
         <div class="bundle glass" id="bundleCard"></div>
-        <div class="lbl"><span>Отдельно: <b>2</b></span></div>
+        <div class="lbl"><span>Отдельно</span></div>
         <div class="card glass list" id="devList"></div>
         <div class="lbl"><span>Пример работы</span></div>
         <button class="card glass example" data-action="open-bot" type="button">
@@ -185,6 +189,29 @@
       <div class="title-row"><button class="icon-btn glass menu-btn" data-action="menu" type="button" aria-label="Открыть меню" aria-controls="drawer"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg></button><h1 class="screen-title">Коллаборации</h1></div>
       <p class="screen-sub">С кем я уже работал</p>
       <div id="collabList"></div>
+    </section>
+
+
+    <!-- ПРОФИЛЬ И ЗАКАЗЫ -->
+    <section class="screen" id="screen-profile" data-screen="profile" hidden>
+      <div class="title-row"><button class="icon-btn glass menu-btn" data-action="menu" type="button" aria-label="Открыть меню" aria-controls="drawer"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg></button><h1 class="screen-title">Профиль</h1></div>
+      <div class="profile-card glass reveal">
+        <div class="avatar big" id="pAvatar" aria-hidden="true">?</div>
+        <div class="rt"><b id="pName">Гость</b><small id="pSub">Заказы видны, если открыть приложение через бота</small></div>
+      </div>
+      <div class="p-stats reveal" style="--d:1">
+        <div class="glass p-stat"><b id="pTotal">0</b><small>заказов</small></div>
+        <div class="glass p-stat"><b id="pActive">0</b><small>в работе</small></div>
+        <div class="glass p-stat"><b id="pDone">0</b><small>готово</small></div>
+      </div>
+      <div class="lbl reveal" style="--d:2"><span>Мои заказы</span><button class="link-btn" id="pRefresh" type="button">Обновить</button></div>
+      <div id="orderList"></div>
+      <div class="p-empty glass reveal" id="pEmpty" hidden>
+        <b>Заказов пока нет</b>
+        <small>Оформите первый — здесь появится его статус: «Отправлена», «В работе», «Готово».</small>
+      </div>
+      <button class="btn btn-primary btn-wide reveal" data-action="order" type="button">Новый заказ</button>
+      <button class="btn btn-glass btn-wide reveal" data-action="telegram" type="button"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-tg"/></svg>Написать Ивану</button>
     </section>
 
     <!-- КАК ЗАКАЗАТЬ -->
@@ -296,9 +323,10 @@
       <button class="icon-btn glass dr-close" data-action="menu-close" type="button" aria-label="Закрыть меню">‹</button>
     </div>
     <div class="dr-sep"></div>
-    <div class="lbl dr-lbl"><span>Меню: <b>6</b></span></div>
+    <div class="lbl dr-lbl"><span>Меню</span></div>
     <nav class="dr-list">
       <button class="row dr-item" data-go="home" type="button"><span class="ico-tile"><svg viewBox="0 0 24 24"><use href="#i-home"/></svg></span><span class="rt"><b>Главная</b></span></button>
+      <button class="row dr-item" data-go="profile" type="button"><span class="ico-tile c-sky"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg></span><span class="rt"><b>Мои заказы</b></span><span class="badge blue" id="drOrders" hidden>0</span></button>
       <button class="row dr-item" data-go="about" type="button"><span class="ico-tile"><svg viewBox="0 0 24 24"><use href="#i-user"/></svg></span><span class="rt"><b>Обо мне</b></span></button>
       <button class="row dr-item" data-go="collabs" type="button"><span class="ico-tile c-gold"><svg viewBox="0 0 24 24"><use href="#i-hand"/></svg></span><span class="rt"><b>Коллаборации</b></span><span class="badge gold" id="drCollabs">0</span></button>
       <button class="row dr-item" data-go="howto" type="button"><span class="ico-tile"><svg viewBox="0 0 24 24"><use href="#i-steps"/></svg></span><span class="rt"><b>Как заказать</b></span></button>
@@ -306,7 +334,7 @@
       <button class="row dr-item" data-go="works" type="button"><span class="ico-tile"><svg viewBox="0 0 24 24"><use href="#i-grid"/></svg></span><span class="rt"><b>Работы</b></span><span class="badge blue" id="drWorks">0</span></button>
     </nav>
     <div class="dr-sep"></div>
-    <div class="lbl dr-lbl"><span>Связь: <b>3</b></span></div>
+    <div class="lbl dr-lbl"><span>Связь</span></div>
     <div class="dr-social glass">
       <button class="dr-soc" data-action="telegram" type="button" aria-label="Telegram"><svg viewBox="0 0 24 24"><use href="#i-tg"/></svg></button>
       <button class="dr-soc" data-action="insta" type="button" aria-label="Instagram"><svg viewBox="0 0 24 24"><use href="#i-insta"/></svg></button>

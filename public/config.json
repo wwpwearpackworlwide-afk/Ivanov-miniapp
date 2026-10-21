@@ -186,6 +186,39 @@
   ],
   "portfolio": [
     {
+      "id": "klinika",
+      "cat": "clients",
+      "title": "История пациентки",
+      "tag": "Клиент · клиника",
+      "description": "Ролик для Клиники современной флебологии: интервью врача и пациентки, motion-графика в цветах клиники, вставки УЗИ и коллаборация в конце.",
+      "cover": "assets/work-klinika.png",
+      "preview": "assets/prev-klinika.mp4",
+      "url": "https://www.instagram.com/reel/DeuL-7Jt-L3/",
+      "isNew": true
+    },
+    {
+      "id": "claude-code",
+      "cat": "reels",
+      "title": "Сделал Claude Code",
+      "tag": "Рилс · ИИ",
+      "description": "Я описал идею — ИИ написал код, и каждый из 900 кадров отрисовался сам. Интерфейс, курсор, печатная машинка.",
+      "cover": "assets/work-claude-code.png",
+      "preview": "assets/prev-claude-code.mp4",
+      "url": "https://www.instagram.com/reel/DetNfotqjdT/",
+      "isNew": true
+    },
+    {
+      "id": "youtube-ii",
+      "cat": "youtube",
+      "title": "Монтаж с ИИ — халтура?",
+      "tag": "YouTube · 16:9",
+      "description": "Горизонтальное видео на 2 минуты: главы, полноэкранная графика, субтитры, конечная заставка и обложка.",
+      "cover": "assets/work-youtube-ii.png",
+      "preview": "assets/prev-youtube-ii.mp4",
+      "url": "https://youtu.be/PX2HHpFY7kg",
+      "isNew": true
+    },
+    {
       "id": "3oshibki",
       "cat": "reels",
       "title": "3 ошибки монтажа",
@@ -193,8 +226,7 @@
       "description": "Разбор с мультяшным персонажем, графикой и субтитрами.",
       "cover": "assets/work-3-oshibki.png",
       "preview": "assets/prev-3-oshibki.mp4",
-      "url": "https://www.instagram.com/reel/DesvQGRqqrs/",
-      "isNew": true
+      "url": "https://www.instagram.com/reel/DesvQGRqqrs/"
     },
     {
       "id": "3sek",
@@ -309,8 +341,16 @@
       "title": "Все"
     },
     {
+      "id": "clients",
+      "title": "Клиенты"
+    },
+    {
       "id": "reels",
       "title": "Рилсы"
+    },
+    {
+      "id": "youtube",
+      "title": "YouTube"
     },
     {
       "id": "logo",
@@ -358,8 +398,11 @@
       "sub": "и ультразвуковой диагностики",
       "video": "assets/collab-klinika.mp4",
       "poster": "assets/collab-klinika.jpg",
-      "url": "",
-      "did": []
+      "url": "https://www.instagram.com/reel/DeuL-7Jt-L3/",
+      "did": [
+        "Ролик «История пациентки»",
+        "Соавторство в Instagram"
+      ]
     },
     {
       "id": "chempion",
@@ -369,6 +412,18 @@
       "poster": "assets/collab-dzyudo-chempion.jpg",
       "url": "",
       "did": []
+    }
+  ],
+  "reviews": [
+    {
+      "id": "klinika",
+      "name": "Клиника современной флебологии",
+      "sub": "и ультразвуковой диагностики",
+      "text": "Афигенный ролик! Монтаж на высоком уровне💪 Будем брать ещё!",
+      "work": "Ролик «История пациентки» · 2:22",
+      "price": 5000,
+      "url": "https://www.instagram.com/reel/DeuL-7Jt-L3/",
+      "logo": "assets/collab-klinika.jpg"
     }
   ]
 }

@@ -14,11 +14,11 @@
   var idempotencyKey = newKey();
   var currentScreen = 'home';
   var successOrderId = null;                          // экран успеха доступен только после подтверждения сервером
-  var SCREENS = ['login', 'home', 'prices', 'works', 'contacts', 'about', 'collabs', 'howto', 'faq', 'order', 'success', 'error'];
-  var MENU_SCREENS = ['about', 'collabs', 'howto', 'faq'];
+  var SCREENS = ['login', 'home', 'prices', 'works', 'contacts', 'about', 'collabs', 'howto', 'faq', 'profile', 'order', 'success', 'error'];
+  var MENU_SCREENS = ['about', 'collabs', 'howto', 'faq', 'profile'];
   var menuOpen = false;
   var TAB_SCREENS = ['home', 'prices', 'works', 'contacts'];
-  var HUE = { home: 0, prices: 0, works: 14, contacts: -10, about: -8, collabs: -22, howto: 8, faq: 4, order: 0, success: 0, error: 0, login: 0 };
+  var HUE = { profile: 12, home: 0, prices: 0, works: 14, contacts: -10, about: -8, collabs: -22, howto: 8, faq: 4, order: 0, success: 0, error: 0, login: 0 };
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -188,7 +188,7 @@
     $('#wTitle').textContent = w.title;
     $('#wDesc').textContent = w.description || '';
     var b = $('#wOpen'), has = /^https?:\/\//i.test(w.url || '');
-    b.disabled = !has; b.textContent = has ? (/t\.me\//.test(w.url) ? 'Открыть в Telegram' : 'Смотреть') : 'Скоро';
+    b.disabled = !has; b.textContent = has ? (/t\.me\//.test(w.url) ? 'Открыть в Telegram' : /youtu/.test(w.url) ? 'Смотреть на YouTube' : 'Смотреть') : 'Скоро';
     b.className = 'btn btn-wide ' + (has ? 'btn-primary' : 'btn-glass');
     var info = $('#workInfo');
     if (animate) { info.classList.remove('swap'); void info.offsetWidth; info.classList.add('swap'); }
@@ -326,7 +326,6 @@
       cl.appendChild(el('button', { class: 'row' + (i === 0 ? ' on' : ''), type: 'button', 'data-cat': c.id }, [tile,
         el('span', { class: 'rt' }, [el('b', { text: c.home.title }), el('small', { text: c.home.sub })]), pr, el('span', { class: 'chev', text: '›' })]));
     });
-    $('#catCount').textContent = cfg.categories.length;
 
     // работы на главной
     var hw = $('#homeWorks'); hw.textContent = '';
@@ -335,7 +334,7 @@
       img.addEventListener('error', function () { img.src = 'assets/icon.png'; }, { once: true });
       hw.appendChild(el('button', { class: 'hcard glass', type: 'button', 'data-work': w.id }, [img, el('span', { text: w.title })]));
     });
-    $('#workCount').textContent = cfg.portfolio.length;
+    renderReviews();
 
     // что входит
     var f = $('#featuresList'); f.textContent = '';
@@ -356,7 +355,6 @@
         el('span', { class: 'ico-tile' }, [icon('clock')]),
         el('span', { class: 'rt' }, [el('b', { text: s.duration }), el('small', { text: s.title })]), priceSpan(s)]));
     });
-    $('#montageCount').textContent = montage.length;
     $('#extrasNote').textContent = cfg.extras.map(function (x) { return x.title; }).join(', ') + ' — по договорённости.';
     pick(selectedMontage, true);
 
@@ -369,7 +367,6 @@
         el('span', { class: 'ico-tile' }, [icon('clock')]),
         el('span', { class: 'rt' }, [el('b', { text: s.duration }), el('small', { text: s.description })]), priceSpan(s)]));
     });
-    $('#logoCount').textContent = logoS.length;
     pick(selected.logo, true);
 
     // разработка
@@ -504,6 +501,121 @@
     setError('sourceUrl', '');
   }
 
+
+  /* =====================================================================
+     Отзывы
+     ===================================================================== */
+  function renderReviews() {
+    var list = $('#reviewList'); if (!list) return; list.textContent = '';
+    var rv = cfg.reviews || [];
+    $('#reviewsLbl').hidden = !rv.length;
+    rv.forEach(function (r, i) {
+      var head = el('div', { class: 'rv-head' }, [
+        r.logo ? el('img', { src: r.logo, alt: '', width: 44, height: 44 }) : null,
+        el('span', { class: 'rt' }, [el('b', { text: r.name }), r.sub ? el('small', { text: r.sub }) : null])]);
+      var meta = el('div', { class: 'rv-meta' }, [
+        r.work ? el('span', { class: 'pill', text: r.work }) : null,
+        r.price != null ? el('span', { class: 'pill gold', text: num(r.price) + ' ' + (cfg.currency || '₽') }) : null]);
+      var kids = [head, el('p', { class: 'rv-text', text: '«' + r.text + '»' }), meta];
+      if (/^https?:\/\//.test(r.url || '')) kids.push(el('button', { class: 'link-btn rv-link', type: 'button', 'data-url': r.url, text: 'Смотреть этот ролик →' }));
+      list.appendChild(el('article', { class: 'review glass reveal', style: '--d:' + i }, kids));
+    });
+  }
+
+  /* =====================================================================
+     Профиль: мои заказы
+     Список хранится у пользователя в облаке Telegram (CloudStorage) — он не теряется
+     при перезапуске сервера. Статусы сервер отдаёт только по проверенной подписи initData.
+     ===================================================================== */
+  var ORDERS_KEY = 'orders_v1';
+  var STATUS = {
+    sent: { t: 'Отправлена', c: 'st-sent' },
+    work: { t: 'В работе', c: 'st-work' },
+    done: { t: 'Готово', c: 'st-done' },
+    cancel: { t: 'Отменена', c: 'st-cancel' }
+  };
+  var orders = [];
+  function cloud() { return inTelegram && tg.CloudStorage && tg.isVersionAtLeast && tg.isVersionAtLeast('6.9') ? tg.CloudStorage : null; }
+  function loadOrders(cb) {
+    var cs = cloud();
+    var fromLocal = function () { try { return JSON.parse(localStorage.getItem(ORDERS_KEY) || '[]'); } catch (e) { return []; } };
+    if (!cs) { cb(fromLocal()); return; }
+    try {
+      cs.getItem(ORDERS_KEY, function (err, v) {
+        var arr = []; try { arr = JSON.parse(v || '[]'); } catch (e) { arr = []; }
+        cb(Array.isArray(arr) && arr.length ? arr : fromLocal());
+      });
+    } catch (e) { cb(fromLocal()); }
+  }
+  function persistOrders() {
+    var data = JSON.stringify(orders.slice(0, 25));           // у CloudStorage лимит 4096 символов на ключ
+    while (data.length > 4000 && orders.length > 1) { orders.pop(); data = JSON.stringify(orders.slice(0, 25)); }
+    try { localStorage.setItem(ORDERS_KEY, data); } catch (e) {}
+    var cs = cloud(); if (cs) try { cs.setItem(ORDERS_KEY, data, function () {}); } catch (e) {}
+  }
+  function saveOrder(o) {
+    loadOrders(function (arr) {
+      orders = (arr || []).filter(function (x) { return x.id !== o.id; });
+      orders.unshift(o); persistOrders(); updateOrderBadge();
+    });
+  }
+  function updateOrderBadge() {
+    var b = $('#drOrders'); if (!b) return;
+    var act = orders.filter(function (o) { return o.status === 'sent' || o.status === 'work'; }).length;
+    b.textContent = act; b.hidden = !act;
+  }
+  function fmtDate(ts) {
+    try { return new Date(ts).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }); } catch (e) { return ''; }
+  }
+  function drawOrders() {
+    var list = $('#orderList'); list.textContent = '';
+    $('#pEmpty').hidden = orders.length > 0;
+    $('#pTotal').textContent = orders.length;
+    $('#pActive').textContent = orders.filter(function (o) { return o.status === 'work'; }).length;
+    $('#pDone').textContent = orders.filter(function (o) { return o.status === 'done'; }).length;
+    orders.forEach(function (o, i) {
+      var s = svc(o.serviceId), st = STATUS[o.status] || STATUS.sent;
+      var title = s ? s.title + (s.cat === 'montage' || !s.cat ? ' · ' + s.duration : '') : 'Заказ';
+      var steps = el('div', { class: 'o-steps' }, ['sent', 'work', 'done'].map(function (k, n) {
+        var order = { sent: 0, work: 1, done: 2, cancel: -1 }[o.status] || 0;
+        return el('i', { class: n <= order ? 'on' : '' });
+      }));
+      list.appendChild(el('article', { class: 'order-card glass reveal', style: '--d:' + i }, [
+        el('div', { class: 'o-top' }, [el('span', { class: 'o-id', text: '№' + o.id }), el('span', { class: 'o-st ' + st.c, text: st.t })]),
+        el('b', { class: 'o-title', text: title }),
+        el('div', { class: 'o-sub' }, [el('span', { text: fmtDate(o.at) }), s ? el('span', { text: formatPrice(s) }) : null]),
+        o.status === 'cancel' ? null : steps
+      ]));
+    });
+    updateOrderBadge(); observe($('#screen-profile'));
+  }
+  function renderProfile(refresh) {
+    var u = inTelegram && tg.initDataUnsafe && tg.initDataUnsafe.user;
+    var av = $('#pAvatar');
+    if (u) {
+      $('#pName').textContent = [u.first_name, u.last_name].filter(Boolean).join(' ') || 'Клиент';
+      $('#pSub').textContent = u.username ? '@' + u.username : 'Аккаунт Telegram';
+      av.textContent = (u.first_name || '?').charAt(0).toUpperCase();
+      if (/^https:\/\//.test(u.photo_url || '')) { av.textContent = ''; av.style.backgroundImage = 'url("' + u.photo_url.replace(/"/g, '') + '")'; }
+    }
+    loadOrders(function (arr) {
+      orders = Array.isArray(arr) ? arr : []; drawOrders();
+      if (!refresh || !inTelegram) return;
+      fetch((cfg.apiBase || '') + '/api/my-orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          if (!j || !j.ok || !Array.isArray(j.orders)) return;
+          var byId = {}; orders.forEach(function (o) { byId[o.id] = o; });
+          j.orders.forEach(function (so) {
+            if (byId[so.id]) byId[so.id].status = so.status;
+            else orders.push({ id: so.id, serviceId: so.serviceId, at: so.at, status: so.status });
+          });
+          orders.sort(function (a, b) { return b.at - a.at; });
+          persistOrders(); drawOrders();
+        }).catch(function () { /* без сети показываем последнее известное */ });
+    });
+  }
+
   /* ---------- меню ☰ ---------- */
   function setMenu(open) {
     if (open === menuOpen) return;
@@ -554,6 +666,7 @@
     var v = $('#phoneVideo');
     if (name === 'works' && cfg && works.list.length) { var p = v.getAttribute('src') ? v.play() : null; if (p && p.catch) p.catch(function () {}); } else v.pause();
     if (name !== 'prices') $('#logoVideo').pause();
+    if (name === 'profile' && cfg) renderProfile(true);
     var scr = $('#screen-' + name); if (scr) observe(scr);
     syncTelegramButtons();
     kick();
@@ -725,6 +838,7 @@
       if (r.ok && r.body && r.body.ok === true && r.body.orderId) {
         haptic('success');
         successOrderId = r.body.orderId;
+        saveOrder({ id: r.body.orderId, serviceId: d.serviceId, at: Date.now(), status: 'sent' });
         $('#successText').textContent = 'Заявка №' + r.body.orderId + ' доставлена мне в Telegram. Я отвечу вам в личных сообщениях, обычно в течение дня.';
         $('#orderForm').reset(); $('#descCounter').textContent = '0 / 1000';
         if (inTelegram) initTelegramContact();
@@ -782,6 +896,7 @@
       if (a === 'open-bot') { openTelegramPath(cfg.brand.bot); return; }
       if (a === 'tg-login') { haptic('light'); openTelegramPath(cfg.brand.bot + '/app'); return; }
       if (a === 'guest') { store.set('guest', '1'); go('home', { replace: true }); return; }
+      if (a === 'refresh-orders') { haptic('light'); renderProfile(true); return; }
       if (a === 'work-prev') { selectWork(works.idx - 1, -1); return; }
       if (a === 'work-next') { selectWork(works.idx + 1, 1); return; }
       var g = t.getAttribute('data-go');
@@ -802,6 +917,7 @@
     });
     $('#orderForm').addEventListener('submit', function (e) { e.preventDefault(); submitOrder(); });
     $('#reloadBtn').addEventListener('click', function () { location.reload(); });
+    $('#pRefresh').addEventListener('click', function () { haptic('light'); renderProfile(true); });
     $('#closeBtn').addEventListener('click', function () {
       if (inTelegram && tg.close) tg.close(); else go('home', { replace: true });
     });
@@ -817,13 +933,14 @@
   bind();
   initTelegram();
   mountLogo($('.hero-logo'), { scale: 0.92 });
-  mountLogo($('.login-logo'), { scale: 1.15, intro: true });
+  mountLogo($('.login-logo'), { scale: 0.78, intro: true });
   initTilt();
   fetch('config.json', { cache: 'no-cache' })
     .then(function (r) { if (!r.ok) throw new Error('config ' + r.status); return r.json(); })
     .then(function (c) {
       cfg = c;
       render();
+      loadOrders(function (arr) { orders = Array.isArray(arr) ? arr : []; updateOrderBadge(); });
       var start = location.hash.slice(1);
       // экран успеха нельзя открыть по ссылке — только после ответа сервера
       if (start === 'success' || start === 'error' || TAB_SCREENS.concat('order', MENU_SCREENS).indexOf(start) < 0) start = '';
