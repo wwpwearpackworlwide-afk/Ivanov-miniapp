@@ -4,7 +4,7 @@
    Работает через webhook на этом же сервере. Тексты — в public/config.json → "bot". */
 const crypto = require('crypto');
 
-function createBot({ env, config, appUrl }) {
+function createBot({ env, config, appUrl, orders }) {
   const B = config.bot || {};
   const brand = config.brand;
   const owner = String(env.OWNER_CHAT_ID || '');
@@ -131,6 +131,33 @@ function createBot({ env, config, appUrl }) {
     }
   }
 
+  /* ---------- Статусы заказов (кнопки под заявкой у владельца) ---------- */
+  const ST_TEXT = { work: 'В работе', done: 'Готово', cancel: 'Отменён' };
+  const ST_CLIENT = {
+    work: id => `🛠 Заказ №${id} взят в работу. Я напишу, как только будет готово.`,
+    done: id => `✅ Заказ №${id} готов! Ссылку на результат пришлю в личные сообщения.\n\nСтатус виден в приложении: Меню → «Мои заказы».`,
+    cancel: id => `Заказ №${id} отменён. Если это ошибка — просто напишите сюда.`
+  };
+  function statusKb(orderId, userId, current) {
+    const b = (st, text) => ({ text: (current === st ? '• ' : '') + text, callback_data: `st:${st}:${orderId}:${userId}` });
+    return { inline_keyboard: [[b('work', '🛠 В работу'), b('done', '✅ Готово')], [b('cancel', '✖ Отменить')]] };
+  }
+  async function onStatus(cq) {
+    const m = String(cq.data).match(/^st:(work|done|cancel):([A-Z0-9]{5,16}):(\d{1,15})$/);
+    if (!m || String(cq.from.id) !== owner) {
+      return api('answerCallbackQuery', { callback_query_id: cq.id, text: 'Недоступно' }).catch(() => {});
+    }
+    const [, st, id, uid] = m;
+    const prev = orders && orders.get(id);
+    if (prev && prev.status === st) return api('answerCallbackQuery', { callback_query_id: cq.id, text: 'Статус уже: ' + ST_TEXT[st] }).catch(() => {});
+    if (orders) orders.setStatus(id, st, uid);
+    let notified = true;
+    try { await api('sendMessage', { chat_id: Number(uid), text: ST_CLIENT[st](id), reply_markup: { inline_keyboard: [[{ text: '📋 Мои заказы', web_app: { url: appUrl + '/#profile' } }]] } }); }
+    catch (e) { notified = false; }
+    api('editMessageReplyMarkup', { chat_id: cq.message.chat.id, message_id: cq.message.message_id, reply_markup: statusKb(id, uid, st) }).catch(() => {});
+    api('answerCallbackQuery', { callback_query_id: cq.id, text: `№${id}: ${ST_TEXT[st]}` + (notified ? ' — клиент уведомлён' : ' — клиенту не дошло (бот остановлен)') }).catch(() => {});
+  }
+
   /* ---------- Обработка обновлений ---------- */
   const COMMANDS = { '/start': 'menu', '/menu': 'menu', '/price': 'prices', '/prices': 'prices', '/portfolio': 'works', '/works': 'works',
     '/order': 'howto', '/howto': 'howto', '/faq': 'faq', '/about': 'about', '/contacts': 'contacts' };
@@ -138,6 +165,7 @@ function createBot({ env, config, appUrl }) {
   async function onUpdate(up) {
     if (up.callback_query) {
       const cq = up.callback_query;
+      if (/^st:/.test(cq.data || '')) return onStatus(cq);
       api('answerCallbackQuery', { callback_query_id: cq.id }).catch(() => {});
       if (cq.data === 'menu_new') return sendCard(cq.message.chat.id, 'menu', cq.from);
       if (sections[cq.data]) return showSection(cq, cq.data);
@@ -200,7 +228,7 @@ function createBot({ env, config, appUrl }) {
     console.log('[bot] команды и кнопка «Магазин» настроены');
   }
 
-  return { WEBHOOK_PATH, handleWebhook, setup, onUpdate, _secret: SECRET };
+  return { WEBHOOK_PATH, handleWebhook, setup, onUpdate, statusKb, _secret: SECRET };
 }
 
 module.exports = { createBot };

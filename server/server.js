@@ -42,8 +42,43 @@ const config = JSON.parse(fs.readFileSync(path.join(PUBLIC_DIR, 'config.json'), 
 /* Бот (команды, меню, пересылка сообщений). Включается, если известен публичный адрес:
    на Render он есть автоматически в RENDER_EXTERNAL_URL, иначе задайте APP_URL. */
 const APP_URL = (process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
+
+/* ---------- Заказы и их статусы ----------
+   Храним в памяти и в data/orders.json. На бесплатном Render диск временный: после перезапуска
+   файл может пропасть — поэтому список заказов клиента дублируется у него в облаке Telegram (CloudStorage),
+   а о каждой смене статуса клиент получает сообщение от бота. */
+const DATA_FILE = process.env.ORDERS_FILE || path.join(ROOT, 'data', 'orders.json');
+const STATUSES = new Set(['sent', 'work', 'done', 'cancel']);
+const orders = (function () {
+  const map = new Map();
+  try { for (const o of JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'))) if (o && o.id) map.set(o.id, o); } catch { /* файла ещё нет */ }
+  let timer = null;
+  const save = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      try {
+        fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
+        const all = [...map.values()].sort((a, b) => b.at - a.at).slice(0, 5000);
+        fs.writeFileSync(DATA_FILE, JSON.stringify(all));
+      } catch (e) { console.error('[orders] не удалось сохранить:', e.message); }
+    }, 300);
+    if (timer.unref) timer.unref();
+  };
+  return {
+    add(o) { map.set(o.id, o); save(); },
+    get(id) { return map.get(id) || null; },
+    setStatus(id, status, userId) {
+      if (!STATUSES.has(status)) return null;
+      let o = map.get(id);
+      if (!o) { if (!userId) return null; o = { id, userId: Number(userId), serviceId: null, at: Date.now() }; }
+      o.status = status; o.updatedAt = Date.now(); map.set(id, o); save(); return o;
+    },
+    ofUser(userId) { return [...map.values()].filter(o => o.userId === userId).sort((a, b) => b.at - a.at).slice(0, 25); }
+  };
+})();
+
 const bot = (env.BOT_TOKEN && env.OWNER_CHAT_ID && APP_URL && process.env.ENABLE_BOT !== 'false')
-  ? require('./bot').createBot({ env, config, appUrl: APP_URL }) : null;
+  ? require('./bot').createBot({ env, config, appUrl: APP_URL, orders }) : null;
 const SERVICES = new Map(config.services.map(s => [s.id, s]));
 const EXTRAS = new Map(config.extras.map(x => [x.id, x]));
 const DEADLINES = new Set(config.deadlines);
@@ -126,11 +161,11 @@ function validateOrder(b, hasVerifiedUser) {
 /* ---------- Telegram Bot API ---------- */
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-async function tgSend(chatId, text) {
+async function tgSend(chatId, text, extra) {
   const res = await fetch(`${env.TELEGRAM_API_BASE}/bot${env.BOT_TOKEN}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML', link_preview_options: { is_disabled: true } }),
+    body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML', link_preview_options: { is_disabled: true }, ...(extra || {}) }),
     signal: AbortSignal.timeout(10000)
   });
   const j = await res.json().catch(() => ({}));
@@ -249,12 +284,15 @@ async function handleOrder(req, res) {
 
   const orderId = Date.now().toString(36).toUpperCase().slice(-5) + crypto.randomBytes(2).toString('hex').toUpperCase();
   try {
-    await tgSend(env.OWNER_CHAT_ID, orderMessage(orderId, o, verified && verified.user));
+    // Кнопки статуса — только для заявок с подтверждённым Telegram-аккаунтом (есть кому сообщить)
+    const extra = verified ? { reply_markup: statusKeyboard(orderId, verified.user.id, 'sent') } : undefined;
+    await tgSend(env.OWNER_CHAT_ID, orderMessage(orderId, o, verified && verified.user), extra);
   } catch (e) {
     console.error('[order] не удалось отправить владельцу:', e.message.replace(env.BOT_TOKEN, '***'));
     return json(res, 502, { ok: false, error: 'telegram_error' }, cors);
   }
   done.set(idemKey, { orderId, at: Date.now() });
+  if (verified) orders.add({ id: orderId, userId: verified.user.id, serviceId: o.serviceId, at: Date.now(), status: 'sent' });
   console.log(`[order] ${orderId} отправлена владельцу (${verified ? 'tg ' + verified.user.id : 'browser'})`);
 
   // Подтверждение клиенту — по желанию, не влияет на результат (бот может писать, только если клиент запускал бота)
@@ -263,6 +301,26 @@ async function handleOrder(req, res) {
       .catch(() => {});
   }
   return json(res, 200, { ok: true, orderId }, cors);
+}
+
+/* Кнопки под заявкой у владельца: callback_data = st:<статус>:<номер>:<id клиента> (до 64 байт) */
+function statusKeyboard(orderId, userId, current) {
+  const b = (st, text) => ({ text: (current === st ? '• ' : '') + text, callback_data: `st:${st}:${orderId}:${userId}` });
+  return { inline_keyboard: [[b('work', '🛠 В работу'), b('done', '✅ Готово')], [b('cancel', '✖ Отменить')]] };
+}
+
+/* Статусы заказов клиента — только по проверенной подписи Telegram */
+async function handleMyOrders(req, res) {
+  if (!/^application\/json\b/i.test(req.headers['content-type'] || '')) return json(res, 415, { ok: false, error: 'validation_error' });
+  if (!env.BOT_TOKEN) return json(res, 503, { ok: false, error: 'not_configured' });
+  if (rateLimited('ip:' + clientIp(req), 60)) return json(res, 429, { ok: false, error: 'rate_limited' }, { 'Retry-After': '600' });
+  let body;
+  try { body = JSON.parse(await readBody(req, 8 * 1024)); } catch (e) { return json(res, e.code === 413 ? 413 : 400, { ok: false, error: e.code === 413 ? 'too_large' : 'validation_error' }); }
+  const v = body && verifyInitData(body.initData, env.BOT_TOKEN, env.INITDATA_MAX_AGE);
+  if (!v) return json(res, 401, { ok: false, error: 'invalid_init_data' });
+  if (rateLimited('my:' + v.user.id, 40)) return json(res, 429, { ok: false, error: 'rate_limited' }, { 'Retry-After': '600' });
+  const list = orders.ofUser(v.user.id).map(o => ({ id: o.id, serviceId: o.serviceId, at: o.at, status: o.status }));
+  return json(res, 200, { ok: true, orders: list });
 }
 
 function serveStatic(req, res, urlPath) {
@@ -294,6 +352,10 @@ const server = http.createServer(async (req, res) => {
       if (req.method !== 'POST') return json(res, 405, { ok: false, error: 'method_not_allowed' }, { Allow: 'POST' });
       return await handleOrder(req, res);
     }
+    if (url.pathname === '/api/my-orders') {
+      if (req.method !== 'POST') return json(res, 405, { ok: false, error: 'method_not_allowed' }, { Allow: 'POST' });
+      return await handleMyOrders(req, res);
+    }
     if (url.pathname.startsWith('/api/')) return json(res, 404, { ok: false, error: 'not_found' });
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method not allowed', { Allow: 'GET, HEAD' });
     return serveStatic(req, res, url.pathname);
@@ -313,4 +375,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { server, verifyInitData, validateOrder };
+module.exports = { server, verifyInitData, validateOrder, orders, statusKeyboard };
