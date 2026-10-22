@@ -188,6 +188,55 @@ async function t(name, fn) { try { await fn(); results.push('✅ ' + name); } ca
     assert.strictEqual((await myOrders(sign(buyer))).body.orders[0].status, 'work');
   });
 
+  // ---- Подписки и план
+  const subBuyer = { id: 5151, first_name: 'Подписчик', username: 'subscriber' };
+  let sid = null;
+  const subOrder = (sub, extra = {}) => fetch(APP_URL + '/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+    serviceId: '', subscription: sub, sourceUrl: '', exampleUrl: '', description: 'Ролики для кофейни', deadline: 'В течение недели',
+    extras: [], contact: '', idempotencyKey: crypto.randomUUID(), initData: sign(subBuyer), ...extra }) }).then(async r => ({ status: r.status, body: await r.json() }));
+  await t('подписка PRO · Advanced 3D: заявка с тарифом и ценой из config.json, под ней кнопка «Оплачено»', async () => {
+    const n = calls.length;
+    const r = await subOrder({ planId: 'pro', level: 'advanced' });
+    assert.ok(r.status === 200 && r.body.orderId, JSON.stringify(r.body)); sid = r.body.orderId; await wait(150);
+    const toOwner = since(n).find(c => c.method === 'sendMessage' && String(c.body.chat_id) === OWNER);
+    assert.ok(toOwner.body.text.includes('PRO') && toOwner.body.text.includes('Advanced 3D') && /34\s?990/.test(toOwner.body.text.replace(/ /g, ' ')), toOwner.body.text);
+    const kb = toOwner.body.reply_markup.inline_keyboard.flat().map(b => b.callback_data);
+    assert.ok(kb.includes(`sp:on:${sid}:${subBuyer.id}`));
+  });
+  await t('подписка: неизвестный тариф или уровень → 400', async () => {
+    const a = await subOrder({ planId: 'mega', level: 'standard' }); const b = await subOrder({ planId: 'pro', level: 'ultra3d' });
+    assert.ok(a.status === 400 && a.body.fields.subscription && b.status === 400 && b.body.fields.subscription);
+  });
+  await t('до оплаты плана нет', async () => {
+    const r = await myOrders(sign(subBuyer)); assert.strictEqual(r.body.plan, null); assert.strictEqual(r.body.orders[0].serviceId, 'sub:pro:advanced');
+  });
+  await t('посторонний не может включить план', async () => {
+    await hook({ update_id: 3, callback_query: { id: 'cq3', from: { id: 31337 }, data: `sp:on:${sid}:${subBuyer.id}`, message: { message_id: 6, chat: { id: 31337 } } } });
+    await wait(150); assert.strictEqual((await myOrders(sign(subBuyer))).body.plan, null);
+  });
+  await t('владелец жмёт «Оплачено»: план PRO активен 30 дней, клиент уведомлён', async () => {
+    const n = calls.length;
+    await hook({ update_id: 4, callback_query: { id: 'cq4', from: { id: Number(OWNER) }, data: `sp:on:${sid}:${subBuyer.id}`, message: { message_id: 6, chat: { id: Number(OWNER) } } } });
+    await wait(200);
+    const plan = (await myOrders(sign(subBuyer))).body.plan;
+    assert.ok(plan && plan.planId === 'pro' && plan.level === 'advanced');
+    assert.ok(Math.abs(plan.until - (Date.now() + 30 * 86400000)) < 60000);
+    assert.ok(since(n).some(c => c.method === 'sendMessage' && c.body.chat_id === subBuyer.id && c.body.text.includes('активна')));
+    const kb = since(n).find(c => c.method === 'editMessageReplyMarkup').body.reply_markup.inline_keyboard.flat().map(b => b.callback_data);
+    assert.ok(kb.includes(`sp:off:${sid}:${subBuyer.id}`));
+  });
+  await t('план виден только своему клиенту', async () => {
+    assert.strictEqual((await myOrders(sign(buyer))).body.plan, null);
+  });
+  await t('владелец жмёт «Отключить план»: плана нет', async () => {
+    await hook({ update_id: 5, callback_query: { id: 'cq5', from: { id: Number(OWNER) }, data: `sp:off:${sid}:${subBuyer.id}`, message: { message_id: 6, chat: { id: Number(OWNER) } } } });
+    await wait(200); assert.strictEqual((await myOrders(sign(subBuyer))).body.plan, null);
+  });
+  await t('кнопку «Оплачено» нельзя применить к обычному заказу', async () => {
+    await hook({ update_id: 6, callback_query: { id: 'cq6', from: { id: Number(OWNER) }, data: `sp:on:${oid}:${buyer.id}`, message: { message_id: 5, chat: { id: Number(OWNER) } } } });
+    await wait(150); assert.strictEqual((await myOrders(sign(buyer))).body.plan, null);
+  });
+
   app.kill(); mock.close();
   console.log(results.join('\n'));
   const failed = results.filter(r => r.startsWith('❌')).length;
