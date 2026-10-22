@@ -138,9 +138,48 @@ function createBot({ env, config, appUrl, orders }) {
     done: id => `✅ Заказ №${id} готов! Ссылку на результат пришлю в личные сообщения.\n\nСтатус виден в приложении: Меню → «Мои заказы».`,
     cancel: id => `Заказ №${id} отменён. Если это ошибка — просто напишите сюда.`
   };
+  const SUBS = config.subscriptions || { plans: [], levels: [] };
+  const isSubOrder = id => { const o = orders && orders.get(id); return !!(o && /^sub:/.test(o.serviceId || '')); };
   function statusKb(orderId, userId, current) {
     const b = (st, text) => ({ text: (current === st ? '• ' : '') + text, callback_data: `st:${st}:${orderId}:${userId}` });
-    return { inline_keyboard: [[b('work', '🛠 В работу'), b('done', '✅ Готово')], [b('cancel', '✖ Отменить')]] };
+    const rows = [[b('work', '🛠 В работу'), b('done', '✅ Готово')], [b('cancel', '✖ Отменить')]];
+    const o = orders && orders.get(orderId);
+    if (isSubOrder(orderId)) {
+      rows.push(o.planUntil > Date.now()
+        ? [{ text: '⏹ Отключить план', callback_data: `sp:off:${orderId}:${userId}` }]
+        : [{ text: '💳 Оплачено — включить план', callback_data: `sp:on:${orderId}:${userId}` }]);
+    }
+    return { inline_keyboard: rows };
+  }
+
+  /* ---------- План подписки: включает только владелец после получения оплаты ---------- */
+  const PLAN_DAYS = 30;
+  async function onPlan(cq) {
+    const m = String(cq.data).match(/^sp:(on|off):([A-Z0-9]{5,16}):(\d{1,15})$/);
+    if (!m || String(cq.from.id) !== owner) return api('answerCallbackQuery', { callback_query_id: cq.id, text: 'Недоступно' }).catch(() => {});
+    const [, act, id, uid] = m;
+    const o = orders && orders.get(id);
+    if (!o || !/^sub:/.test(o.serviceId || '') || String(o.userId) !== uid) {
+      return api('answerCallbackQuery', { callback_query_id: cq.id, text: 'Заявка не найдена на сервере (мог быть перезапуск). Включить план не получится.', show_alert: true }).catch(() => {});
+    }
+    const [, planId, level] = o.serviceId.split(':');
+    const plan = (SUBS.plans || []).find(p => p.id === planId), lvl = (SUBS.levels || []).find(l => l.id === level);
+    const name = plan && lvl ? `${plan.title} · ${lvl.title}` : 'подписка';
+    let until = 0;
+    if (act === 'on') {
+      const base = Math.max(Date.now(), o.planUntil || 0);      // повторная оплата продлевает, а не сбрасывает
+      until = base + PLAN_DAYS * 24 * 3600 * 1000;
+    }
+    orders.setPlan(id, until);
+    const date = new Date(until).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', timeZone: 'Asia/Novokuznetsk' });
+    const text = act === 'on'
+      ? `🎉 Подписка <b>${esc(name)}</b> активна до ${esc(date)}.\n\nПлан виден в приложении: Меню → «Мои заказы».`
+      : `Подписка <b>${esc(name)}</b> отключена. Если это ошибка — просто напишите сюда.`;
+    let notified = true;
+    try { await api('sendMessage', { chat_id: Number(uid), text, parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: '👤 Мой план', web_app: { url: appUrl + '/#profile' } }]] } }); }
+    catch (e) { notified = false; }
+    api('editMessageReplyMarkup', { chat_id: cq.message.chat.id, message_id: cq.message.message_id, reply_markup: statusKb(id, uid, o.status) }).catch(() => {});
+    api('answerCallbackQuery', { callback_query_id: cq.id, text: (act === 'on' ? `План включён до ${date}` : 'План отключён') + (notified ? ' — клиент уведомлён' : ' — клиенту не дошло') }).catch(() => {});
   }
   async function onStatus(cq) {
     const m = String(cq.data).match(/^st:(work|done|cancel):([A-Z0-9]{5,16}):(\d{1,15})$/);
@@ -166,6 +205,7 @@ function createBot({ env, config, appUrl, orders }) {
     if (up.callback_query) {
       const cq = up.callback_query;
       if (/^st:/.test(cq.data || '')) return onStatus(cq);
+      if (/^sp:/.test(cq.data || '')) return onPlan(cq);
       api('answerCallbackQuery', { callback_query_id: cq.id }).catch(() => {});
       if (cq.data === 'menu_new') return sendCard(cq.message.chat.id, 'menu', cq.from);
       if (sections[cq.data]) return showSection(cq, cq.data);

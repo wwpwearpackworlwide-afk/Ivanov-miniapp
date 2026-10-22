@@ -73,7 +73,20 @@ const orders = (function () {
       if (!o) { if (!userId) return null; o = { id, userId: Number(userId), serviceId: null, at: Date.now() }; }
       o.status = status; o.updatedAt = Date.now(); map.set(id, o); save(); return o;
     },
-    ofUser(userId) { return [...map.values()].filter(o => o.userId === userId).sort((a, b) => b.at - a.at).slice(0, 25); }
+    ofUser(userId) { return [...map.values()].filter(o => o.userId === userId).sort((a, b) => b.at - a.at).slice(0, 25); },
+    // План подписки включает владелец кнопкой «Оплачено» под заявкой: до этого момента план не активен
+    setPlan(id, until) {
+      const o = map.get(id);
+      if (!o || !/^sub:/.test(o.serviceId || '')) return null;
+      o.planUntil = until; o.updatedAt = Date.now(); map.set(id, o); save(); return o;
+    },
+    activePlan(userId) {
+      const now = Date.now();
+      const act = [...map.values()].filter(o => o.userId === userId && o.planUntil > now).sort((a, b) => b.planUntil - a.planUntil)[0];
+      if (!act) return null;
+      const [, planId, level] = act.serviceId.split(':');
+      return { planId, level, until: act.planUntil, orderId: act.id };
+    }
   };
 })();
 
@@ -82,6 +95,18 @@ const bot = (env.BOT_TOKEN && env.OWNER_CHAT_ID && APP_URL && process.env.ENABLE
 const SERVICES = new Map(config.services.map(s => [s.id, s]));
 const EXTRAS = new Map(config.extras.map(x => [x.id, x]));
 const DEADLINES = new Set(config.deadlines);
+// Подписки: тарифы и уровни анимации — из того же config.json, что и у страницы
+const SUBS = config.subscriptions || { plans: [], levels: [] };
+const PLANS = new Map((SUBS.plans || []).map(p => [p.id, p]));
+const LEVELS = new Map((SUBS.levels || []).map(l => [l.id, l]));
+function subLabel(sub) {
+  const p = PLANS.get(sub.planId), l = LEVELS.get(sub.level);
+  return p && l ? `Подписка ${p.title} · ${l.title}` : 'Подписка';
+}
+function subPrice(sub) {
+  const p = PLANS.get(sub.planId);
+  return p ? p.price[sub.level].toLocaleString('ru-RU') + ' ' + config.currency + '/' + (SUBS.period || 'мес') : '';
+}
 
 /* ---------- Проверка initData по официальному алгоритму Telegram ----------
    secret_key = HMAC_SHA256(key = "WebAppData", message = bot_token)
@@ -143,11 +168,21 @@ function validateOrder(b, hasVerifiedUser) {
     deadline: str(b.deadline),
     contact: str(b.contact),
     extras: Array.isArray(b.extras) ? [...new Set(b.extras.filter(x => typeof x === 'string'))] : [],
-    idempotencyKey: str(b.idempotencyKey)
+    idempotencyKey: str(b.idempotencyKey),
+    subscription: null
   };
-  if (!SERVICES.has(o.serviceId)) fields.serviceId = 'Выберите услугу из списка.';
+  // Заявка на подписку: вместо услуги — тариф и уровень анимации
+  if (b.subscription != null) {
+    const sb = b.subscription;
+    const planId = sb && typeof sb === 'object' ? str(sb.planId) : '', level = sb && typeof sb === 'object' ? str(sb.level) : '';
+    const plan = PLANS.get(planId);
+    if (!plan || !LEVELS.has(level) || !plan.price || typeof plan.price[level] !== 'number') fields.subscription = 'Выберите тариф и уровень анимации.';
+    else o.subscription = { planId, level };
+    o.serviceId = '';
+    if (o.extras.length) fields.extras = 'Дополнительные услуги к подписке обсуждаются отдельно.';
+  } else if (!SERVICES.has(o.serviceId)) fields.serviceId = 'Выберите услугу из списка.';
   const svc = SERVICES.get(o.serviceId);
-  const sourceOptional = !!(svc && svc.cat === 'dev');      // для ботов и мини-приложений ссылка не обязательна
+  const sourceOptional = !!(svc && svc.cat === 'dev') || b.subscription != null;   // для ботов, мини-приложений и подписок ссылка не обязательна
   if (o.sourceUrl ? !validUrl(o.sourceUrl) : !sourceOptional) fields.sourceUrl = 'Нужна корректная ссылка, начинающаяся с https://';
   if (o.exampleUrl && !validUrl(o.exampleUrl)) fields.exampleUrl = 'Нужна корректная ссылка или пустое поле.';
   if (o.description.length < 5 || o.description.length > 1000) fields.description = 'Описание: от 5 до 1000 символов.';
@@ -180,6 +215,14 @@ function priceText(s) {
 
 function orderMessage(id, o, user) {
   const s = SERVICES.get(o.serviceId);
+  let what;
+  if (o.subscription) {
+    const p = PLANS.get(o.subscription.planId);
+    what = [`<b>Подписка:</b> ${esc(p.title)} · ${esc(LEVELS.get(o.subscription.level).title)} — ${esc(subPrice(o.subscription))}`,
+      `<b>Объём:</b> ${p.videos} роликов в месяц, до ${p.maxSec} секунд каждый`];
+  } else {
+    what = [`<b>Услуга:</b> ${esc(s.title)} (${esc(s.duration)}) — ${esc(priceText(s))}`];
+  }
   const extras = o.extras.map(x => EXTRAS.get(x).title).join(', ') || 'нет';
   let who;
   if (user) {
@@ -189,9 +232,9 @@ function orderMessage(id, o, user) {
     who = '⚠️ не подтверждён (отправлено из браузера)';
   }
   return [
-    `🎬 <b>Новая заявка №${id}</b>`,
+    `🎬 <b>Новая заявка №${id}</b>${o.subscription ? ' · подписка' : ''}`,
     '',
-    `<b>Услуга:</b> ${esc(s.title)} (${esc(s.duration)}) — ${esc(priceText(s))}`,
+    ...what,
     `<b>Доп. услуги:</b> ${esc(extras)}`,
     `<b>Срок:</b> ${esc(o.deadline)}`,
     `<b>Ссылка:</b> ${o.sourceUrl ? esc(o.sourceUrl) : 'не указана'}`,
@@ -285,28 +328,31 @@ async function handleOrder(req, res) {
   const orderId = Date.now().toString(36).toUpperCase().slice(-5) + crypto.randomBytes(2).toString('hex').toUpperCase();
   try {
     // Кнопки статуса — только для заявок с подтверждённым Telegram-аккаунтом (есть кому сообщить)
-    const extra = verified ? { reply_markup: statusKeyboard(orderId, verified.user.id, 'sent') } : undefined;
+    const extra = verified ? { reply_markup: statusKeyboard(orderId, verified.user.id, 'sent', !!o.subscription) } : undefined;
     await tgSend(env.OWNER_CHAT_ID, orderMessage(orderId, o, verified && verified.user), extra);
   } catch (e) {
     console.error('[order] не удалось отправить владельцу:', e.message.replace(env.BOT_TOKEN, '***'));
     return json(res, 502, { ok: false, error: 'telegram_error' }, cors);
   }
   done.set(idemKey, { orderId, at: Date.now() });
-  if (verified) orders.add({ id: orderId, userId: verified.user.id, serviceId: o.serviceId, at: Date.now(), status: 'sent' });
+  const storedId = o.subscription ? `sub:${o.subscription.planId}:${o.subscription.level}` : o.serviceId;
+  if (verified) orders.add({ id: orderId, userId: verified.user.id, serviceId: storedId, at: Date.now(), status: 'sent' });
   console.log(`[order] ${orderId} отправлена владельцу (${verified ? 'tg ' + verified.user.id : 'browser'})`);
 
   // Подтверждение клиенту — по желанию, не влияет на результат (бот может писать, только если клиент запускал бота)
   if (verified) {
-    tgSend(verified.user.id, `✅ Заявка №${orderId} получена. Я отвечу вам в личных сообщениях.\n\nУслуга: ${esc(SERVICES.get(o.serviceId).title)}`)
+    tgSend(verified.user.id, `✅ Заявка №${orderId} получена. Я отвечу вам в личных сообщениях.\n\n${o.subscription ? esc(subLabel(o.subscription)) + ' — ' + esc(subPrice(o.subscription)) : 'Услуга: ' + esc(SERVICES.get(o.serviceId).title)}`)
       .catch(() => {});
   }
   return json(res, 200, { ok: true, orderId }, cors);
 }
 
 /* Кнопки под заявкой у владельца: callback_data = st:<статус>:<номер>:<id клиента> (до 64 байт) */
-function statusKeyboard(orderId, userId, current) {
+function statusKeyboard(orderId, userId, current, isSub) {
   const b = (st, text) => ({ text: (current === st ? '• ' : '') + text, callback_data: `st:${st}:${orderId}:${userId}` });
-  return { inline_keyboard: [[b('work', '🛠 В работу'), b('done', '✅ Готово')], [b('cancel', '✖ Отменить')]] };
+  const rows = [[b('work', '🛠 В работу'), b('done', '✅ Готово')], [b('cancel', '✖ Отменить')]];
+  if (isSub) rows.push([{ text: '💳 Оплачено — включить план', callback_data: `sp:on:${orderId}:${userId}` }]);
+  return { inline_keyboard: rows };
 }
 
 /* Статусы заказов клиента — только по проверенной подписи Telegram */
@@ -320,7 +366,8 @@ async function handleMyOrders(req, res) {
   if (!v) return json(res, 401, { ok: false, error: 'invalid_init_data' });
   if (rateLimited('my:' + v.user.id, 40)) return json(res, 429, { ok: false, error: 'rate_limited' }, { 'Retry-After': '600' });
   const list = orders.ofUser(v.user.id).map(o => ({ id: o.id, serviceId: o.serviceId, at: o.at, status: o.status }));
-  return json(res, 200, { ok: true, orders: list });
+  const plan = orders.activePlan(v.user.id);
+  return json(res, 200, { ok: true, orders: list, plan });
 }
 
 function serveStatic(req, res, urlPath) {
