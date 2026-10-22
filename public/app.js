@@ -58,6 +58,13 @@
   }
   function svc(id) { return cfg.services.filter(function (s) { return s.id === id; })[0]; }
   function catOf(id) { var s = svc(id); return s ? (s.cat || 'montage') : 'montage'; }
+  /* ---------- Подписки: все цифры — в config.json → subscriptions ---------- */
+  function SUBS() { return cfg.subscriptions || { plans: [], levels: [] }; }
+  function planOf(id) { return SUBS().plans.filter(function (p) { return p.id === id; })[0]; }
+  function levelOf(id) { return SUBS().levels.filter(function (l) { return l.id === id; })[0]; }
+  function subPrice(planId, level) { var p = planOf(planId); return p && p.price ? num(p.price[level]) + ' ' + (cfg.currency || '₽') + '/' + (SUBS().period || 'мес') : ''; }
+  function parseSubId(id) { var m = /^sub:([a-z0-9_-]+):([a-z0-9_-]+)$/.exec(id || ''); return m ? { planId: m[1], level: m[2] } : null; }
+  function subTitle(sub) { var p = planOf(sub.planId), l = levelOf(sub.level); return p && l ? 'Подписка ' + p.title + ' · ' + l.title : 'Подписка'; }
   function servicesOf(cat) { return cfg.services.filter(function (s) { return (s.cat || 'montage') === cat; }); }
 
   function haptic(type) {
@@ -326,6 +333,12 @@
       cl.appendChild(el('button', { class: 'row' + (i === 0 ? ' on' : ''), type: 'button', 'data-cat': c.id }, [tile,
         el('span', { class: 'rt' }, [el('b', { text: c.home.title }), el('small', { text: c.home.sub })]), pr, el('span', { class: 'chev', text: '›' })]));
     });
+    if (SUBS().plans.length) {
+      var minSub = SUBS().plans.reduce(function (m, p) { return Math.min(m, p.price.standard); }, Infinity);
+      cl.appendChild(el('button', { class: 'row', type: 'button', 'data-mode-open': 'subs' }, [el('span', { class: 'ico-tile blue' }, [icon('subs')]),
+        el('span', { class: 'rt' }, [el('b', { text: 'Подписки на монтаж' }), el('small', { text: 'Ролики каждый месяц' })]),
+        el('span', { class: 'pr', text: 'от ' + num(minSub) + ' ₽' }), el('span', { class: 'chev', text: '›' })]));
+    }
 
     // работы на главной
     var hw = $('#homeWorks'); hw.textContent = '';
@@ -386,6 +399,8 @@
         el('span', { class: 'ico-tile c-sky' }, [icon(s.id === 'bot' ? 'bot' : 'app')]),
         el('span', { class: 'rt' }, [el('b', { text: s.title }), el('small', { text: s.duration })]), priceSpan(s), el('span', { class: 'chev', text: '›' })]));
     });
+
+    renderSubs();
 
     // работы
     var fl = $('#workFilters'); fl.textContent = '';
@@ -457,6 +472,98 @@
     observe();
   }
 
+  /* ---------- Подписки: карточки тарифов ---------- */
+  var priceMode = 'once';
+  var subSel = {};           // planId -> выбранный уровень анимации
+  var orderSub = null;       // { planId, level } — если оформляется подписка
+  function renderSubs() {
+    var S = SUBS(), list = $('#planList'); if (!list) return; list.textContent = '';
+    $('#modeSeg').hidden = !S.plans.length;
+    $('#subsSub').textContent = S.subtitle || '';
+    var lg = $('#lvlLegend'); lg.textContent = '';
+    S.levels.forEach(function (l) { lg.appendChild(el('div', { class: 'lvl-note' }, [el('b', { text: l.title }), el('small', { text: l.short || '' })])); });
+    S.plans.forEach(function (p, i) {
+      if (!subSel[p.id]) subSel[p.id] = S.levels[0].id;
+      var lvl = el('div', { class: 'lvl-seg', role: 'radiogroup', 'aria-label': 'Уровень Motion Design для ' + p.title }, S.levels.map(function (l) {
+        return el('button', { type: 'button', role: 'radio', 'data-plan': p.id, 'data-lvl': l.id, 'aria-checked': 'false', text: l.title });
+      }));
+      var card = el('article', { class: 'plan glass reveal', style: '--d:' + i, 'data-plan-card': p.id }, [
+        el('div', { class: 'plan-top' }, [el('h3', { text: p.title }), el('span', { class: 'pill', text: p.videos + ' роликов/' + (S.period || 'мес') })]),
+        el('p', { class: 'plan-meta', text: 'До ' + p.maxSec + ' секунд каждый ролик' }),
+        lvl,
+        el('div', { class: 'plan-price' }, [el('b', { class: 'pp' }), el('small', { text: 'в месяц' })]),
+        el('ul', { class: 'plan-feat' }),
+        el('div', { class: 'plan-terms' }),
+        el('button', { class: 'btn btn-primary btn-wide', type: 'button', 'data-sub-order': p.id, text: 'Оформить заказ' })
+      ]);
+      list.appendChild(card);
+      setLevel(p.id, subSel[p.id], true);
+    });
+  }
+  function setLevel(planId, level, silent) {
+    var p = planOf(planId), l = levelOf(level); if (!p || !l) return;
+    subSel[planId] = level;
+    var card = $('[data-plan-card="' + planId + '"]'); if (!card) return;
+    $$('.lvl-seg button', card).forEach(function (b) { var on = b.getAttribute('data-lvl') === level; b.setAttribute('aria-checked', on ? 'true' : 'false'); b.classList.toggle('on', on); });
+    card.classList.toggle('adv', level !== SUBS().levels[0].id);
+    $('.pp', card).textContent = num(p.price[level]) + ' ' + (cfg.currency || '₽');
+    var ul = $('.plan-feat', card); ul.textContent = '';
+    l.features.forEach(function (f) { ul.appendChild(el('li', null, [icon('check'), el('span', { text: f })])); });
+    $('.plan-terms', card).textContent = 'Итого: ' + p.title + ' · ' + l.title + ' — ' + p.videos + ' роликов до ' + p.maxSec + ' с за ' + subPrice(planId, level) + '.';
+    if (!silent) haptic('select');
+  }
+  function setMode(mode) {
+    if (!SUBS().plans.length) mode = 'once';
+    priceMode = mode;
+    $$('#modeSeg button').forEach(function (b) { b.setAttribute('aria-selected', b.getAttribute('data-mode') === mode ? 'true' : 'false'); });
+    $('.mode-thumb').style.transform = 'translateX(' + (mode === 'subs' ? 100 : 0) + '%)';
+    $('#oncePane').hidden = mode !== 'once';
+    $('#subsPane').hidden = mode !== 'subs';
+    $('#priceCta').hidden = mode === 'subs' || currentCat === 'dev';
+    if (mode === 'subs') { $('#logoVideo').pause(); observe($('#subsPane')); document.documentElement.style.setProperty('--hue', '0deg'); }
+    else selectCat(currentCat, false);
+  }
+  function openSubOrder(planId) {
+    var level = subSel[planId]; if (!planOf(planId) || !levelOf(level)) return;
+    orderSub = { planId: planId, level: level };
+    applyOrderMode();
+    go('order');
+  }
+  function applyOrderMode() {
+    var box = $('#subSummary');
+    $('#serviceField').hidden = !!orderSub;
+    if (!orderSub) { box.hidden = true; onServiceChange(); return; }
+    var p = planOf(orderSub.planId), l = levelOf(orderSub.level);
+    box.textContent = '';
+    box.appendChild(el('div', { class: 'ss-top' }, [el('span', { class: 'label', text: 'Выбранная подписка' }), el('button', { class: 'link-btn', type: 'button', 'data-mode-open': 'subs', text: 'Изменить' })]));
+    box.appendChild(el('b', { text: p.title + ' · ' + l.title }));
+    box.appendChild(el('small', { text: p.videos + ' роликов в месяц, до ' + p.maxSec + ' секунд каждый' }));
+    box.appendChild(el('div', { class: 'ss-price', text: subPrice(p.id, l.id) }));
+    box.hidden = false;
+    $('#sourceLabel').textContent = 'Ссылка на материалы (если уже есть)'; $('#fSource').placeholder = 'необязательно'; $('#sourceReq').hidden = true;
+    $('#fDesc').placeholder = 'О чём ваши ролики, для какой площадки, что важно';
+    var ef = $('#extrasField'); ef.hidden = true; $$('input[name="extras"]', ef).forEach(function (c) { c.checked = false; });
+    $('#servicePrice').textContent = '';
+    setError('sourceUrl', '');
+  }
+
+  /* ---------- Мой план (включается после оплаты — кнопкой владельца в боте) ---------- */
+  var PLAN_KEY = 'plan_v1';
+  function showPlan(plan) {
+    var ok = plan && plan.until > Date.now() && planOf(plan.planId) && levelOf(plan.level);
+    var hb = $('#homePlan'), pc = $('#planCard');
+    if (!ok) { hb.hidden = true; pc.hidden = true; return; }
+    var p = planOf(plan.planId), l = levelOf(plan.level);
+    hb.textContent = p.title; hb.hidden = false;
+    pc.textContent = '';
+    pc.appendChild(el('div', { class: 'pl-top' }, [el('span', { class: 'plan-badge big', text: p.title }), el('span', { class: 'pill', text: l.title })]));
+    pc.appendChild(el('b', { text: 'Подписка активна' }));
+    pc.appendChild(el('small', { text: p.videos + ' роликов в месяц, до ' + p.maxSec + ' с · до ' + fmtDate(plan.until) }));
+    pc.hidden = false;
+  }
+  function cachedPlan() { try { return JSON.parse(localStorage.getItem(PLAN_KEY) || 'null'); } catch (e) { return null; } }
+  function storePlan(plan) { try { if (plan) localStorage.setItem(PLAN_KEY, JSON.stringify(plan)); else localStorage.removeItem(PLAN_KEY); } catch (e) {} }
+
   var selected = { montage: null, logo: null };
   function updateCta() {
     var s = svc(selected[currentCat] || selected.montage);
@@ -482,14 +589,16 @@
       if (on && animate) { p.style.setProperty('--dx', (dir * 28) + 'px'); p.style.animation = 'none'; void p.offsetWidth; p.style.animation = ''; observe(p); $$('[data-count]', p).forEach(function (n) { n.__counted = false; if (n.closest('.reveal') === null || n.closest('.reveal').classList.contains('in')) countUp(n); }); }
     });
     var c = cfg.categories[i]; $('#catSub').textContent = c.subtitle;
-    $('#priceCta').hidden = id === 'dev';
+    $('#priceCta').hidden = id === 'dev' || priceMode === 'subs';
     updateCta();
     document.documentElement.style.setProperty('--hue', (id === 'logo' ? -18 : id === 'dev' ? 16 : 0) + 'deg');
     var v = $('#logoVideo'); if (id === 'logo' && currentScreen === 'prices' && !reduceMotion) { var p = v.play(); if (p && p.catch) p.catch(function () {}); } else v.pause();
   }
 
   function onServiceChange() {
+    if (orderSub) return;
     var s = svc($('#fService').value); if (!s) return;
+    $('#fDesc').placeholder = 'Что нужно сделать, для какой площадки, что важно';
     var cat = s.cat || 'montage';
     $('#servicePrice').textContent = 'Предварительная стоимость: ' + formatPrice(s);
     var L = { montage: ['Ссылка на исходное видео или материалы', 'https://disk.yandex.ru/...', true],
@@ -574,8 +683,8 @@
     $('#pActive').textContent = orders.filter(function (o) { return o.status === 'work'; }).length;
     $('#pDone').textContent = orders.filter(function (o) { return o.status === 'done'; }).length;
     orders.forEach(function (o, i) {
-      var s = svc(o.serviceId), st = STATUS[o.status] || STATUS.sent;
-      var title = s ? s.title + (s.cat === 'montage' || !s.cat ? ' · ' + s.duration : '') : 'Заказ';
+      var s = svc(o.serviceId), st = STATUS[o.status] || STATUS.sent, sb = parseSubId(o.serviceId);
+      var title = sb ? subTitle(sb) : s ? s.title + (s.cat === 'montage' || !s.cat ? ' · ' + s.duration : '') : 'Заказ';
       var steps = el('div', { class: 'o-steps' }, ['sent', 'work', 'done'].map(function (k, n) {
         var order = { sent: 0, work: 1, done: 2, cancel: -1 }[o.status] || 0;
         return el('i', { class: n <= order ? 'on' : '' });
@@ -583,7 +692,7 @@
       list.appendChild(el('article', { class: 'order-card glass reveal', style: '--d:' + i }, [
         el('div', { class: 'o-top' }, [el('span', { class: 'o-id', text: '№' + o.id }), el('span', { class: 'o-st ' + st.c, text: st.t })]),
         el('b', { class: 'o-title', text: title }),
-        el('div', { class: 'o-sub' }, [el('span', { text: fmtDate(o.at) }), s ? el('span', { text: formatPrice(s) }) : null]),
+        el('div', { class: 'o-sub' }, [el('span', { text: fmtDate(o.at) }), sb ? el('span', { text: subPrice(sb.planId, sb.level) }) : s ? el('span', { text: formatPrice(s) }) : null]),
         o.status === 'cancel' ? null : steps
       ]));
     });
@@ -598,6 +707,7 @@
       av.textContent = (u.first_name || '?').charAt(0).toUpperCase();
       if (/^https:\/\//.test(u.photo_url || '')) { av.textContent = ''; av.style.backgroundImage = 'url("' + u.photo_url.replace(/"/g, '') + '")'; }
     }
+    showPlan(cachedPlan());
     loadOrders(function (arr) {
       orders = Array.isArray(arr) ? arr : []; drawOrders();
       if (!refresh || !inTelegram) return;
@@ -605,6 +715,7 @@
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (j) {
           if (!j || !j.ok || !Array.isArray(j.orders)) return;
+          storePlan(j.plan || null); showPlan(j.plan || null);
           var byId = {}; orders.forEach(function (o) { byId[o.id] = o; });
           j.orders.forEach(function (so) {
             if (byId[so.id]) byId[so.id].status = so.status;
@@ -678,6 +789,7 @@
   });
 
   function openOrder(serviceId) {
+    orderSub = null; applyOrderMode();
     if (serviceId && svc(serviceId)) { $('#fService').value = serviceId; onServiceChange(); }
     go('order');
   }
@@ -752,19 +864,20 @@
   function readForm() {
     var f = $('#orderForm');
     return {
-      serviceId: f.serviceId.value,
+      serviceId: orderSub ? '' : f.serviceId.value,
       sourceUrl: f.sourceUrl.value.trim(),
       exampleUrl: f.exampleUrl.value.trim(),
       description: f.description.value.trim(),
       deadline: f.deadline.value,
       extras: $$('input[name="extras"]:checked', f).map(function (x) { return x.value; }),
-      contact: f.contact.value.trim()
+      contact: f.contact.value.trim(),
+      subscription: orderSub ? { planId: orderSub.planId, level: orderSub.level } : undefined
     };
   }
 
   function validate(d) {
     var errs = {};
-    var optional = catOf(d.serviceId) === 'dev';
+    var optional = !!d.subscription || catOf(d.serviceId) === 'dev';
     if (!d.sourceUrl) { if (!optional) errs.sourceUrl = 'Добавьте ссылку (Яндекс Диск, Google Drive, облако).'; }
     else if (!validUrl(d.sourceUrl)) errs.sourceUrl = 'Похоже, это не ссылка. Она должна начинаться с https://';
     if (d.exampleUrl && !validUrl(d.exampleUrl)) errs.exampleUrl = 'Ссылка должна начинаться с https:// — или оставьте поле пустым.';
@@ -838,12 +951,12 @@
       if (r.ok && r.body && r.body.ok === true && r.body.orderId) {
         haptic('success');
         successOrderId = r.body.orderId;
-        saveOrder({ id: r.body.orderId, serviceId: d.serviceId, at: Date.now(), status: 'sent' });
+        saveOrder({ id: r.body.orderId, serviceId: d.subscription ? 'sub:' + d.subscription.planId + ':' + d.subscription.level : d.serviceId, at: Date.now(), status: 'sent' });
         $('#successText').textContent = 'Заявка №' + r.body.orderId + ' доставлена мне в Telegram. Я отвечу вам в личных сообщениях, обычно в течение дня.';
         $('#orderForm').reset(); $('#descCounter').textContent = '0 / 1000';
         if (inTelegram) initTelegramContact();
         idempotencyKey = newKey();
-        onServiceChange();
+        orderSub = null; applyOrderMode();
         go('success', { replace: true });
         return;
       }
@@ -863,11 +976,15 @@
   function bind() {
     document.addEventListener('click', function (e) {
       if (!cfg) return;
-      var t = e.target.closest('[data-go],[data-action],[data-service],[data-cat],[data-seg],[data-pick],[data-work],[data-filter],[data-url],.tile');
+      var t = e.target.closest('[data-go],[data-action],[data-service],[data-cat],[data-seg],[data-mode],[data-mode-open],[data-lvl],[data-sub-order],[data-pick],[data-work],[data-filter],[data-url],.tile');
       if (!t) return;
       if (t.hasAttribute('data-service')) { haptic('light'); openOrder(t.getAttribute('data-service')); return; }
-      if (t.hasAttribute('data-cat')) { haptic('light'); currentCat = t.getAttribute('data-cat'); go('prices'); return; }
+      if (t.hasAttribute('data-cat')) { haptic('light'); currentCat = t.getAttribute('data-cat'); go('prices'); setMode('once'); return; }
       if (t.hasAttribute('data-seg')) { haptic('select'); selectCat(t.getAttribute('data-seg'), true); return; }
+      if (t.hasAttribute('data-mode')) { haptic('select'); setMode(t.getAttribute('data-mode')); return; }
+      if (t.hasAttribute('data-mode-open')) { haptic('light'); if (currentScreen !== 'prices') go('prices'); setMode(t.getAttribute('data-mode-open')); return; }
+      if (t.hasAttribute('data-lvl')) { setLevel(t.getAttribute('data-plan'), t.getAttribute('data-lvl')); return; }
+      if (t.hasAttribute('data-sub-order')) { haptic('light'); openSubOrder(t.getAttribute('data-sub-order')); return; }
       if (t.hasAttribute('data-pick')) { pick(t.getAttribute('data-pick')); return; }
       if (t.hasAttribute('data-filter')) {
         haptic('select'); works.filter = t.getAttribute('data-filter');
@@ -941,6 +1058,8 @@
       cfg = c;
       render();
       loadOrders(function (arr) { orders = Array.isArray(arr) ? arr : []; updateOrderBadge(); });
+      showPlan(cachedPlan());
+      if (inTelegram) renderProfile(true);   // статусы и активный план с сервера (по подписи Telegram)
       var start = location.hash.slice(1);
       // экран успеха нельзя открыть по ссылке — только после ответа сервера
       if (start === 'success' || start === 'error' || TAB_SCREENS.concat('order', MENU_SCREENS).indexOf(start) < 0) start = '';

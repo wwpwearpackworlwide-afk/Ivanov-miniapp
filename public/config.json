@@ -425,5 +425,101 @@
       "url": "https://www.instagram.com/reel/DeuL-7Jt-L3/",
       "logo": "assets/collab-klinika.jpg"
     }
-  ]
+  ],
+  "subscriptions": {
+    "title": "Подписки",
+    "subtitle": "Ролики каждый месяц с Motion Design. Выберите объём и уровень анимации.",
+    "period": "мес",
+    "levels": [
+      {
+        "id": "standard",
+        "title": "Standard Motion",
+        "short": "2D Motion Design",
+        "features": [
+          "2D Motion Design",
+          "Анимированная типографика",
+          "Динамичные переходы",
+          "Анимированные субтитры",
+          "Графические элементы",
+          "Работа с ритмом, музыкой и звуковыми акцентами",
+          "Выразительная композиция без обязательных сложных 3D-сцен"
+        ]
+      },
+      {
+        "id": "advanced",
+        "title": "Advanced 3D",
+        "short": "3D + 2D Motion Design",
+        "features": [
+          "Сложные 3D-композиции",
+          "Объёмные объекты и текст",
+          "Анимация камеры в 3D-пространстве",
+          "Более сложные визуальные сцены",
+          "Комбинация 2D и 3D",
+          "Продвинутый Motion Design"
+        ]
+      }
+    ],
+    "plans": [
+      {
+        "id": "basic",
+        "title": "BASIC",
+        "videos": 8,
+        "maxSec": 20,
+        "price": {
+          "standard": 9990,
+          "advanced": 16990
+        }
+      },
+      {
+        "id": "go",
+        "title": "GO",
+        "videos": 12,
+        "maxSec": 25,
+        "price": {
+          "standard": 14990,
+          "advanced": 24990
+        }
+      },
+      {
+        "id": "pro",
+        "title": "PRO",
+        "videos": 16,
+        "maxSec": 30,
+        "price": {
+          "standard": 21990,
+          "advanced": 34990
+        }
+      },
+      {
+        "id": "proplus",
+        "title": "PRO PLUS",
+        "videos": 20,
+        "maxSec": 30,
+        "price": {
+          "standard": 27990,
+          "advanced": 44990
+        }
+      },
+      {
+        "id": "max",
+        "title": "MAX",
+        "videos": 30,
+        "maxSec": 35,
+        "price": {
+          "standard": 39990,
+          "advanced": 64990
+        }
+      },
+      {
+        "id": "ultra",
+        "title": "ULTRA",
+        "videos": 40,
+        "maxSec": 35,
+        "price": {
+          "standard": 49990,
+          "advanced": 79990
+        }
+      }
+    ]
+  }
 }

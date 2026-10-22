@@ -51,7 +51,7 @@
     <section class="screen" id="screen-home" data-screen="home" hidden>
       <header class="hello">
         <button class="icon-btn glass menu-btn" data-action="menu" type="button" aria-label="Открыть меню" aria-controls="drawer"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg></button>
-        <div class="hello-text"><small id="greet">Добро пожаловать</small><b id="userName">IvanovService</b></div>
+        <div class="hello-text"><small id="greet">Добро пожаловать</small><b id="userName">IvanovService</b><span class="plan-badge" id="homePlan" hidden></span></div>
         <span id="envBadge" class="env-badge" hidden>браузер</span>
         <button class="avatar" id="avatar" data-go="profile" type="button" aria-label="Мой профиль и заказы">I</button>
       </header>
@@ -87,6 +87,12 @@
     <!-- ЦЕНЫ -->
     <section class="screen" id="screen-prices" data-screen="prices" hidden>
       <div class="title-row"><button class="icon-btn glass menu-btn" data-action="menu" type="button" aria-label="Открыть меню" aria-controls="drawer"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg></button><h1 class="screen-title">Цены</h1></div>
+      <div class="mode-seg glass" id="modeSeg" role="tablist" aria-label="Тип заказа">
+        <i class="mode-thumb" aria-hidden="true"></i>
+        <button type="button" role="tab" data-mode="once" aria-selected="true">Разовый монтаж</button>
+        <button type="button" role="tab" data-mode="subs" aria-selected="false">Подписки</button>
+      </div>
+      <div id="oncePane">
       <p class="screen-sub" id="catSub"></p>
       <div class="seg glass" id="seg" role="tablist"><i class="seg-thumb" aria-hidden="true"></i></div>
 
@@ -114,6 +120,14 @@
           <span class="rt"><b>@<span class="botName"></span></b><small>Мой бот и это приложение</small></span>
           <span class="pill blue">Открыть</span>
         </button>
+      </div>
+
+      </div>
+
+      <div id="subsPane" hidden>
+        <p class="screen-sub" id="subsSub"></p>
+        <div class="lvl-legend" id="lvlLegend"></div>
+        <div id="planList" class="plan-list"></div>
       </div>
 
       <div class="sticky-cta" id="priceCta"><button class="btn btn-primary btn-wide" data-action="order-selected" type="button" id="priceCtaBtn">Оформить</button></div>
@@ -199,6 +213,7 @@
         <div class="avatar big" id="pAvatar" aria-hidden="true">?</div>
         <div class="rt"><b id="pName">Гость</b><small id="pSub">Заказы видны, если открыть приложение через бота</small></div>
       </div>
+      <div class="plan-card reveal" id="planCard" hidden></div>
       <div class="p-stats reveal" style="--d:1">
         <div class="glass p-stat"><b id="pTotal">0</b><small>заказов</small></div>
         <div class="glass p-stat"><b id="pActive">0</b><small>в работе</small></div>
@@ -236,7 +251,8 @@
       <h1 class="screen-title">Оформление заказа</h1>
       <p class="screen-sub">Заполните форму — заявка придёт мне в Telegram.</p>
       <form id="orderForm" class="glass form" novalidate>
-        <label class="field">
+        <div class="sub-summary" id="subSummary" hidden></div>
+        <label class="field" id="serviceField">
           <span class="label">Услуга <em>*</em></span>
           <select name="serviceId" id="fService" required></select>
           <span class="hint" id="servicePrice"></span>

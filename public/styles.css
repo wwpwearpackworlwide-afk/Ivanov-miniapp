@@ -408,3 +408,46 @@ button.avatar:active{transform:scale(.92)}
 .login-points li::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--blue);box-shadow:0 0 10px var(--blue);flex:none}
 .login-actions{padding-top:28px}
 .login{justify-content:flex-start;padding-top:56px}
+
+/* ===== Подписки ===== */
+.mode-seg{position:relative;display:grid;grid-template-columns:1fr 1fr;padding:5px;border-radius:18px;margin-top:16px}
+.mode-seg button{position:relative;z-index:1;height:44px;border-radius:14px;font-size:15px;font-weight:700;color:var(--steel);transition:color .3s}
+.mode-seg button[aria-selected="true"]{color:#fff}
+.mode-thumb{position:absolute;left:5px;top:5px;bottom:5px;width:calc((100% - 10px)/2);border-radius:14px;background:linear-gradient(135deg,#3d77ff,var(--blue));
+  box-shadow:0 8px 22px rgba(47,107,255,.35),inset 0 1px 0 rgba(255,255,255,.3);transition:transform .45s var(--spring)}
+#subsPane{animation:paneIn .4s var(--out) both}
+.lvl-legend{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0 4px}
+.lvl-note{padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid var(--line)}
+.lvl-note b{display:block;font-size:13px}
+.lvl-note small{font-size:12px;color:var(--steel)}
+.plan-list{display:flex;flex-direction:column;gap:14px;margin-top:14px;padding-bottom:12px}
+.plan{border-radius:24px;padding:18px 16px 16px;transition:box-shadow .3s}
+.plan.adv{box-shadow:0 0 0 1px rgba(157,184,255,.35),0 16px 40px rgba(0,0,0,.35)}
+.plan-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.plan-top h3{font-size:22px;letter-spacing:.02em}
+.plan-top .pill{background:rgba(255,255,255,.08);color:var(--chalk)}
+.plan-meta{font-size:13px;color:var(--steel);margin:4px 0 14px}
+.lvl-seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:4px;border-radius:14px;background:rgba(0,0,0,.25)}
+.lvl-seg button{min-height:40px;border-radius:11px;font-size:13px;font-weight:700;color:var(--steel);transition:background .2s,color .2s,transform .15s}
+.lvl-seg button:active{transform:scale(.97)}
+.lvl-seg button.on{background:var(--blue);color:#fff;box-shadow:0 6px 16px rgba(47,107,255,.35)}
+.lvl-seg button:focus-visible,.mode-seg button:focus-visible{outline:2px solid var(--sky);outline-offset:2px}
+.plan-price{display:flex;align-items:baseline;gap:8px;margin:16px 0 10px}
+.plan-price b{font-size:30px;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.plan-price small{color:var(--steel);font-size:13px}
+.plan-feat{list-style:none;display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px;padding:0}
+.plan-feat li{display:inline-flex;gap:6px;align-items:center;font-size:12.5px;line-height:1.25;padding:6px 10px 6px 8px;border-radius:10px;background:rgba(255,255,255,.06)}
+.plan-feat svg{width:14px;height:14px;flex:none;color:var(--sky)}
+.plan-terms{font-size:12.5px;color:var(--steel);line-height:1.4;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.04);margin-bottom:12px}
+.sub-summary{padding:14px;border-radius:16px;background:rgba(47,107,255,.12);border:1px solid rgba(47,107,255,.35);margin-bottom:18px;display:flex;flex-direction:column;gap:3px}
+.sub-summary .ss-top{display:flex;justify-content:space-between;align-items:center}
+.sub-summary b{font-size:17px}
+.sub-summary small{color:var(--steel);font-size:13px}
+.sub-summary .ss-price{font-weight:800;font-size:18px;margin-top:4px}
+.plan-badge{display:inline-flex;align-items:center;height:20px;margin-left:8px;padding:0 8px;border-radius:7px;font-size:11px;font-weight:800;letter-spacing:.06em;
+  color:#fff;background:linear-gradient(135deg,#3d77ff,var(--blue));vertical-align:middle}
+.plan-badge.big{height:28px;font-size:13px;margin-left:0;padding:0 12px;border-radius:9px}
+.plan-card{margin-top:12px;padding:16px;border-radius:20px;background:linear-gradient(135deg,rgba(47,107,255,.22),rgba(47,107,255,.06));border:1px solid rgba(47,107,255,.4);display:flex;flex-direction:column;gap:4px}
+.plan-card .pl-top{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.plan-card small{color:var(--steel);font-size:13px}
+@media (prefers-reduced-motion:reduce){.mode-thumb{transition:none}#subsPane{animation:none}}
