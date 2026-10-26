@@ -199,7 +199,7 @@ async function t(name, fn) { try { await fn(); results.push('✅ ' + name); } ca
     const r = await subOrder({ planId: 'pro', level: 'advanced' });
     assert.ok(r.status === 200 && r.body.orderId, JSON.stringify(r.body)); sid = r.body.orderId; await wait(150);
     const toOwner = since(n).find(c => c.method === 'sendMessage' && String(c.body.chat_id) === OWNER);
-    assert.ok(toOwner.body.text.includes('PRO') && toOwner.body.text.includes('Advanced 3D') && /34\s?990/.test(toOwner.body.text.replace(/ /g, ' ')), toOwner.body.text);
+    assert.ok(toOwner.body.text.includes('PRO') && toOwner.body.text.includes('Advanced 3D') && /9\s?000/.test(toOwner.body.text.replace(/ /g, ' ')), toOwner.body.text);
     const kb = toOwner.body.reply_markup.inline_keyboard.flat().map(b => b.callback_data);
     assert.ok(kb.includes(`sp:on:${sid}:${subBuyer.id}`));
   });

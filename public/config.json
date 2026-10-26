@@ -73,6 +73,56 @@
       "cat": "montage"
     },
     {
+      "id": "yt3",
+      "cat": "youtube",
+      "title": "Короткое видео",
+      "duration": "1:00–3:00",
+      "price": 1500,
+      "from": false,
+      "description": "Горизонтальное видео 16:9 для YouTube.",
+      "popular": false
+    },
+    {
+      "id": "yt6",
+      "cat": "youtube",
+      "title": "Среднее видео",
+      "duration": "3:00–6:00",
+      "price": 2500,
+      "from": false,
+      "description": "Горизонтальное видео 16:9 для YouTube.",
+      "popular": true
+    },
+    {
+      "id": "yt9",
+      "cat": "youtube",
+      "title": "Видео с историей",
+      "duration": "6:00–9:00",
+      "price": 3500,
+      "from": false,
+      "description": "Горизонтальное видео 16:9 для YouTube.",
+      "popular": false
+    },
+    {
+      "id": "yt12",
+      "cat": "youtube",
+      "title": "Длинное видео",
+      "duration": "9:00–12:00",
+      "price": 4500,
+      "from": false,
+      "description": "Горизонтальное видео 16:9 для YouTube.",
+      "popular": false
+    },
+    {
+      "id": "yt12plus",
+      "cat": "youtube",
+      "title": "Большой проект",
+      "duration": "от 12 минут",
+      "price": 5000,
+      "from": true,
+      "description": "Горизонтальное видео 16:9 для YouTube.",
+      "popular": false
+    },
+    {
       "id": "logo5",
       "cat": "logo",
       "title": "Анимация логотипа",
@@ -180,8 +230,8 @@
     },
     {
       "icon": "phone",
-      "title": "Reels, TikTok и Shorts",
-      "text": "Вертикальный формат 9:16 под все площадки"
+      "title": "Рилсы и YouTube",
+      "text": "Вертикальные 9:16 и горизонтальные 16:9 видео"
     }
   ],
   "portfolio": [
@@ -252,11 +302,23 @@
       "id": "logo",
       "cat": "logo",
       "title": "Анимация логотипа",
-      "tag": "Логотип · 5 сек",
-      "description": "Мой собственный логотип: два клипа и плейхед. Стоит в конце моих рилсов.",
+      "tag": "Логотип · 4 сек",
+      "description": "Мой логотип: быстрая смена палитр на переключателе, два клипа и плейхед, финальный кадр с надписью «монтаж рилсов».",
       "cover": "assets/work-logo.png",
       "preview": "assets/prev-logo.mp4",
-      "url": "https://www.instagram.com/reel/DerXC-BqPN2/"
+      "url": "https://www.instagram.com/reel/DerXC-BqPN2/",
+      "isNew": true
+    },
+    {
+      "id": "klinika-logo",
+      "cat": "logo",
+      "title": "Логотип клиники",
+      "tag": "Логотип · клиент",
+      "description": "Анимация логотипа для Клиники современной флебологии: обводка контура знака, мягкое появление названия, цвета клиники.",
+      "cover": "assets/work-klinika-logo.png",
+      "preview": "assets/prev-klinika-logo.mp4",
+      "url": "",
+      "isNew": true
     },
     {
       "id": "petlya",
@@ -306,11 +368,21 @@
   "categories": [
     {
       "id": "montage",
-      "title": "Монтаж",
+      "title": "Рилсы",
       "subtitle": "Цена зависит только от длины ролика",
       "home": {
         "title": "Монтаж рилсов",
         "sub": "Reels, TikTok, Shorts",
+        "icon": "film"
+      }
+    },
+    {
+      "id": "youtube",
+      "title": "YouTube",
+      "subtitle": "Горизонтальные видео 16:9 — цена зависит от длины",
+      "home": {
+        "title": "Монтаж YouTube",
+        "sub": "Горизонтальные видео 16:9",
         "icon": "film"
       }
     },
@@ -405,6 +477,18 @@
       ]
     },
     {
+      "id": "julien",
+      "name": "Julien Brulard",
+      "sub": "Travel & Judo",
+      "video": "assets/collab-julien.mp4",
+      "poster": "assets/collab-julien.jpg",
+      "url": "https://www.instagram.com/reel/De1vv6Hq519/",
+      "did": [
+        "Совместный рилс",
+        "Соавторство в Instagram"
+      ]
+    },
+    {
       "id": "chempion",
       "name": "Клуб дзюдо «Чемпион»",
       "sub": "Новокузнецк",
@@ -428,7 +512,7 @@
   ],
   "subscriptions": {
     "title": "Подписки",
-    "subtitle": "Ролики каждый месяц с Motion Design. Выберите объём и уровень анимации.",
+    "subtitle": "Ролики каждый месяц с Motion Design. Выберите формат, объём и уровень анимации.",
     "period": "мес",
     "levels": [
       {
@@ -461,64 +545,196 @@
     ],
     "plans": [
       {
-        "id": "basic",
-        "title": "BASIC",
-        "videos": 8,
-        "maxSec": 20,
+        "id": "start",
+        "format": "short",
+        "title": "START",
+        "videos": 4,
+        "unit": "ролик",
+        "meta": "До 50 секунд каждый ролик",
         "price": {
-          "standard": 9990,
-          "advanced": 16990
-        }
-      },
-      {
-        "id": "go",
-        "title": "GO",
-        "videos": 12,
-        "maxSec": 25,
-        "price": {
-          "standard": 14990,
-          "advanced": 24990
-        }
+          "standard": 3500,
+          "advanced": 5000
+        },
+        "label": "Рилсы START"
       },
       {
         "id": "pro",
+        "format": "short",
         "title": "PRO",
-        "videos": 16,
-        "maxSec": 30,
+        "videos": 8,
+        "unit": "ролик",
+        "meta": "До 50 секунд каждый ролик",
         "price": {
-          "standard": 21990,
-          "advanced": 34990
-        }
+          "standard": 6500,
+          "advanced": 9000
+        },
+        "label": "Рилсы PRO"
       },
       {
         "id": "proplus",
+        "format": "short",
         "title": "PRO PLUS",
-        "videos": 20,
-        "maxSec": 30,
+        "videos": 12,
+        "unit": "ролик",
+        "meta": "До 50 секунд каждый ролик",
         "price": {
-          "standard": 27990,
-          "advanced": 44990
-        }
+          "standard": 9500,
+          "advanced": 13500
+        },
+        "label": "Рилсы PRO PLUS"
       },
       {
         "id": "max",
+        "format": "short",
         "title": "MAX",
-        "videos": 30,
-        "maxSec": 35,
+        "videos": 20,
+        "unit": "ролик",
+        "meta": "До 50 секунд каждый ролик",
         "price": {
-          "standard": 39990,
-          "advanced": 64990
-        }
+          "standard": 15000,
+          "advanced": 22000
+        },
+        "group": "max",
+        "variant": "MAX",
+        "label": "Рилсы MAX"
       },
       {
-        "id": "ultra",
-        "title": "ULTRA",
-        "videos": 40,
-        "maxSec": 35,
+        "id": "max5x",
+        "format": "short",
+        "title": "MAX 5X",
+        "videos": 22,
+        "unit": "ролик",
+        "meta": "До 50 секунд каждый ролик",
         "price": {
-          "standard": 49990,
-          "advanced": 79990
-        }
+          "standard": 27000,
+          "advanced": 27000
+        },
+        "group": "max",
+        "variant": "5X",
+        "perks": [
+          "Ускоренный монтаж",
+          "Больше сложных 3D-анимаций"
+        ],
+        "label": "Рилсы MAX 5X",
+        "allLevels": true
+      },
+      {
+        "id": "max20x",
+        "format": "short",
+        "title": "MAX 20X",
+        "videos": 30,
+        "unit": "ролик",
+        "meta": "До 50 секунд каждый ролик",
+        "price": {
+          "standard": 40000,
+          "advanced": 40000
+        },
+        "group": "max",
+        "variant": "20X",
+        "perks": [
+          "Максимальный приоритет",
+          "Расширенные возможности 2D/3D"
+        ],
+        "label": "Рилсы MAX 20X",
+        "allLevels": true
+      },
+      {
+        "id": "yt-start",
+        "format": "long",
+        "title": "START",
+        "videos": 2,
+        "unit": "видео",
+        "meta": "До 3 минут каждое видео",
+        "price": {
+          "standard": 2500,
+          "advanced": 4000
+        },
+        "label": "YouTube START"
+      },
+      {
+        "id": "yt-pro",
+        "format": "long",
+        "title": "PRO",
+        "videos": 3,
+        "unit": "видео",
+        "meta": "До 6 минут каждое видео",
+        "price": {
+          "standard": 5500,
+          "advanced": 8000
+        },
+        "label": "YouTube PRO"
+      },
+      {
+        "id": "yt-proplus",
+        "format": "long",
+        "title": "PRO PLUS",
+        "videos": 4,
+        "unit": "видео",
+        "meta": "До 9 минут каждое видео",
+        "price": {
+          "standard": 9000,
+          "advanced": 13000
+        },
+        "label": "YouTube PRO PLUS"
+      },
+      {
+        "id": "yt-max",
+        "format": "long",
+        "title": "MAX",
+        "videos": 5,
+        "unit": "видео",
+        "meta": "До 12 минут каждое видео",
+        "price": {
+          "standard": 14000,
+          "advanced": 20000
+        },
+        "group": "yt-max",
+        "variant": "MAX",
+        "label": "YouTube MAX"
+      },
+      {
+        "id": "yt-max5x",
+        "format": "long",
+        "title": "MAX 5X",
+        "videos": 8,
+        "unit": "видео",
+        "meta": "До 10 минут каждое видео",
+        "price": {
+          "standard": 38000,
+          "advanced": 38000
+        },
+        "group": "yt-max",
+        "variant": "5X",
+        "label": "YouTube MAX 5X",
+        "allLevels": true
+      },
+      {
+        "id": "yt-max20x",
+        "format": "long",
+        "title": "MAX 20X",
+        "videos": 12,
+        "unit": "видео",
+        "meta": "До 15 минут каждое видео",
+        "price": {
+          "standard": 65000,
+          "advanced": 65000
+        },
+        "group": "yt-max",
+        "variant": "20X",
+        "label": "YouTube MAX 20X",
+        "allLevels": true
+      }
+    ],
+    "formats": [
+      {
+        "id": "short",
+        "title": "Рилсы 9:16",
+        "note": "Все ролики до 50 секунд"
+      },
+      {
+        "id": "long",
+        "title": "YouTube 16:9",
+        "note": "Горизонтальные видео для YouTube"
       }
     ]
   }

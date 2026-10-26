@@ -62,9 +62,16 @@
   function SUBS() { return cfg.subscriptions || { plans: [], levels: [] }; }
   function planOf(id) { return SUBS().plans.filter(function (p) { return p.id === id; })[0]; }
   function levelOf(id) { return SUBS().levels.filter(function (l) { return l.id === id; })[0]; }
-  function subPrice(planId, level) { var p = planOf(planId); return p && p.price ? num(p.price[level]) + ' ' + (cfg.currency || '₽') + '/' + (SUBS().period || 'мес') : ''; }
+  function priceOk(p, level) { return !!(p && p.price && typeof p.price[level] === 'number'); }
+  function subPrice(planId, level) { var p = planOf(planId); if (!p) return ''; return priceOk(p, level) ? num(p.price[level]) + ' ' + (cfg.currency || '₽') + '/' + (SUBS().period || 'мес') : 'цена по запросу'; }
+  function planVideos(p) {
+    var n = p.videos, u = p.unit || 'ролик';
+    if (u !== 'ролик') return n + ' ' + u;
+    var m10 = n % 10, m100 = n % 100;
+    return n + ' ' + (m10 === 1 && m100 !== 11 ? 'ролик' : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? 'ролика' : 'роликов');
+  }
   function parseSubId(id) { var m = /^sub:([a-z0-9_-]+):([a-z0-9_-]+)$/.exec(id || ''); return m ? { planId: m[1], level: m[2] } : null; }
-  function subTitle(sub) { var p = planOf(sub.planId), l = levelOf(sub.level); return p && l ? 'Подписка ' + p.title + ' · ' + l.title : 'Подписка'; }
+  function subTitle(sub) { var p = planOf(sub.planId), l = levelOf(sub.level); return p && l ? 'Подписка ' + (p.label || p.title) + ' · ' + l.title : 'Подписка'; }
   function servicesOf(cat) { return cfg.services.filter(function (s) { return (s.cat || 'montage') === cat; }); }
 
   function haptic(type) {
@@ -287,7 +294,7 @@
   function countUp(n) {
     if (n.__counted) return; n.__counted = true;
     var to = Number(n.getAttribute('data-count')), pre = n.getAttribute('data-pre') || '', suf = ' ' + (cfg.currency || '₽');
-    if (reduceMotion) { n.textContent = pre + num(to) + suf; return; }
+    n.textContent = pre + num(to) + suf; return;   // цену показываем сразу: «бегущие» цифры могут попасть на скриншот
     var t0 = performance.now();
     (function step(now) {
       var p = easeOut((now - t0) / 800);
@@ -334,7 +341,7 @@
         el('span', { class: 'rt' }, [el('b', { text: c.home.title }), el('small', { text: c.home.sub })]), pr, el('span', { class: 'chev', text: '›' })]));
     });
     if (SUBS().plans.length) {
-      var minSub = SUBS().plans.reduce(function (m, p) { return Math.min(m, p.price.standard); }, Infinity);
+      var minSub = SUBS().plans.reduce(function (m, p) { return priceOk(p, 'standard') ? Math.min(m, p.price.standard) : m; }, Infinity);
       cl.appendChild(el('button', { class: 'row', type: 'button', 'data-mode-open': 'subs' }, [el('span', { class: 'ico-tile blue' }, [icon('subs')]),
         el('span', { class: 'rt' }, [el('b', { text: 'Подписки на монтаж' }), el('small', { text: 'Ролики каждый месяц' })]),
         el('span', { class: 'pr', text: 'от ' + num(minSub) + ' ₽' }), el('span', { class: 'chev', text: '›' })]));
@@ -358,6 +365,7 @@
     // цены: сегменты
     var seg = $('#seg'); $$('button', seg).forEach(function (n) { n.remove(); });
     cfg.categories.forEach(function (c) { seg.appendChild(el('button', { type: 'button', role: 'tab', 'data-seg': c.id, 'aria-selected': 'false', text: c.title })); });
+    seg.style.setProperty('--n', cfg.categories.length); seg.classList.toggle('many', cfg.categories.length > 3);
 
     // монтаж
     var ml = $('#montageList'); ml.textContent = '';
@@ -370,6 +378,20 @@
     });
     $('#extrasNote').textContent = cfg.extras.map(function (x) { return x.title; }).join(', ') + ' — по договорённости.';
     pick(selectedMontage, true);
+
+    // YouTube (горизонтальные видео)
+    var yl = $('#youtubeList'), ytS = servicesOf('youtube');
+    if (yl) {
+      yl.textContent = '';
+      selected.youtube = (ytS.filter(function (s) { return s.popular; })[0] || ytS[0] || {}).id;
+      ytS.forEach(function (s, i) {
+        yl.appendChild(el('button', { class: 'row reveal', style: '--d:' + i, type: 'button', role: 'radio', 'data-pick': s.id, 'aria-checked': 'false' }, [
+          el('span', { class: 'ico-tile' }, [icon('clock')]),
+          el('span', { class: 'rt' }, [el('b', { text: s.duration }), el('small', { text: s.title })]), priceSpan(s)]));
+      });
+      $('#ytNote').textContent = $('#extrasNote').textContent;
+      if (selected.youtube) pick(selected.youtube, true);
+    }
 
     // логотип
     var lg = $('#logoList'); lg.textContent = '';
@@ -474,44 +496,78 @@
 
   /* ---------- Подписки: карточки тарифов ---------- */
   var priceMode = 'once';
-  var subSel = {};           // planId -> выбранный уровень анимации
+  var subSel = {};           // карточка -> выбранный уровень анимации
+  var cardPlan = {};         // карточка -> выбранный вариант (MAX / 5X / 20X)
+  var subFmt = null;         // формат: рилсы 9:16 или YouTube 16:9
   var orderSub = null;       // { planId, level } — если оформляется подписка
+  function cardKey(p) { return p.group || p.id; }
+  function formats() { return SUBS().formats && SUBS().formats.length ? SUBS().formats : [{ id: 'all', title: '' }]; }
   function renderSubs() {
     var S = SUBS(), list = $('#planList'); if (!list) return; list.textContent = '';
     $('#modeSeg').hidden = !S.plans.length;
     $('#subsSub').textContent = S.subtitle || '';
+    var F = formats(); if (!subFmt) subFmt = F[0].id;
+    var fs = $('#fmtSeg'); $$('button', fs).forEach(function (n) { n.remove(); });
+    F.forEach(function (f) { fs.appendChild(el('button', { type: 'button', role: 'tab', 'data-fmt': f.id, 'aria-selected': f.id === subFmt ? 'true' : 'false', text: f.title })); });
+    fs.hidden = F.length < 2;
+    var fi = 0; F.forEach(function (f, i) { if (f.id === subFmt) fi = i; });
+    $('.mode-thumb', fs).style.transform = 'translateX(' + (fi * 100) + '%)';
+    $('#fmtNote').textContent = F[fi].note || '';
     var lg = $('#lvlLegend'); lg.textContent = '';
-    S.levels.forEach(function (l) { lg.appendChild(el('div', { class: 'lvl-note' }, [el('b', { text: l.title }), el('small', { text: l.short || '' })])); });
-    S.plans.forEach(function (p, i) {
-      if (!subSel[p.id]) subSel[p.id] = S.levels[0].id;
-      var lvl = el('div', { class: 'lvl-seg', role: 'radiogroup', 'aria-label': 'Уровень Motion Design для ' + p.title }, S.levels.map(function (l) {
-        return el('button', { type: 'button', role: 'radio', 'data-plan': p.id, 'data-lvl': l.id, 'aria-checked': 'false', text: l.title });
-      }));
-      var card = el('article', { class: 'plan glass reveal', style: '--d:' + i, 'data-plan-card': p.id }, [
-        el('div', { class: 'plan-top' }, [el('h3', { text: p.title }), el('span', { class: 'pill', text: p.videos + ' роликов/' + (S.period || 'мес') })]),
-        el('p', { class: 'plan-meta', text: 'До ' + p.maxSec + ' секунд каждый ролик' }),
-        lvl,
-        el('div', { class: 'plan-price' }, [el('b', { class: 'pp' }), el('small', { text: 'в месяц' })]),
-        el('ul', { class: 'plan-feat' }),
-        el('div', { class: 'plan-terms' }),
-        el('button', { class: 'btn btn-primary btn-wide', type: 'button', 'data-sub-order': p.id, text: 'Оформить заказ' })
-      ]);
-      list.appendChild(card);
-      setLevel(p.id, subSel[p.id], true);
+    var cols = $('#lvlCols'); cols.textContent = '';
+    S.levels.forEach(function (l) {
+      lg.appendChild(el('div', { class: 'lvl-note' }, [el('b', { text: l.title }), el('small', { text: l.short || '' })]));
+      var ul = el('ul', { class: 'plan-feat' }); (l.features || []).forEach(function (f) { ul.appendChild(el('li', null, [icon('check'), el('span', { text: f })])); });
+      cols.appendChild(el('div', null, [el('b', { text: l.title }), ul]));
     });
+    var seen = {}, i = 0;
+    S.plans.forEach(function (p) {
+      if (F[0].id !== 'all' && (p.format || F[0].id) !== subFmt) return;
+      var key = cardKey(p); if (seen[key]) return; seen[key] = true;
+      var vars = S.plans.filter(function (x) { return cardKey(x) === key; });
+      if (!cardPlan[key] || !planOf(cardPlan[key])) cardPlan[key] = vars[0].id;
+      if (!subSel[key]) subSel[key] = S.levels[0].id;
+      var kids = [
+        el('div', { class: 'plan-top' }, [el('h3', { class: 'pt-title' }), el('span', { class: 'pill pt-pill' })]),
+        el('p', { class: 'plan-meta' })];
+      if (vars.length > 1) kids.push(el('div', { class: 'var-seg', role: 'radiogroup', 'aria-label': 'Объём тарифа ' + p.title }, vars.map(function (v) {
+        return el('button', { type: 'button', role: 'radio', 'data-var-card': key, 'data-var': v.id, 'aria-checked': 'false', text: v.variant || v.title });
+      })));
+      kids.push(el('div', { class: 'lvl-seg', role: 'radiogroup', 'aria-label': 'Уровень Motion Design для ' + p.title }, S.levels.map(function (l) {
+        return el('button', { type: 'button', role: 'radio', 'data-plan': key, 'data-lvl': l.id, 'aria-checked': 'false', text: l.title });
+      })));
+      kids.push(el('div', { class: 'lvl-all', text: '2D + 3D Motion Design — оба уровня входят' }));
+      kids.push(el('div', { class: 'plan-price' }, [el('b', { class: 'pp' }), el('small', { class: 'pp-per', text: 'в месяц' })]));
+      kids.push(el('ul', { class: 'plan-feat perks' }));
+      kids.push(el('button', { class: 'btn btn-primary btn-wide', type: 'button', 'data-sub-order': key }));
+      list.appendChild(el('article', { class: 'plan glass reveal', style: '--d:' + (i++), 'data-plan-card': key }, kids));
+      updateCard(key);
+    });
+    observe(list);
   }
-  function setLevel(planId, level, silent) {
-    var p = planOf(planId), l = levelOf(level); if (!p || !l) return;
-    subSel[planId] = level;
-    var card = $('[data-plan-card="' + planId + '"]'); if (!card) return;
-    $$('.lvl-seg button', card).forEach(function (b) { var on = b.getAttribute('data-lvl') === level; b.setAttribute('aria-checked', on ? 'true' : 'false'); b.classList.toggle('on', on); });
+  function updateCard(key) {
+    var card = $('[data-plan-card="' + key + '"]'), p = planOf(cardPlan[key]), level = subSel[key], l = levelOf(level);
+    if (!card || !p || !l) return;
+    var mark = function (sel, attr, val) { $$(sel, card).forEach(function (b) { var on = b.getAttribute(attr) === val; b.setAttribute('aria-checked', on ? 'true' : 'false'); b.classList.toggle('on', on); }); };
+    if (p.allLevels) { level = SUBS().levels[SUBS().levels.length - 1].id; l = levelOf(level); }   // MAX 5X/20X: 2D и 3D уже входят
+    mark('.var-seg button', 'data-var', p.id); mark('.lvl-seg button', 'data-lvl', level);
+    $('.lvl-seg', card).hidden = !!p.allLevels;
+    $('.lvl-all', card).hidden = !p.allLevels;
     card.classList.toggle('adv', level !== SUBS().levels[0].id);
-    $('.pp', card).textContent = num(p.price[level]) + ' ' + (cfg.currency || '₽');
-    var ul = $('.plan-feat', card); ul.textContent = '';
-    l.features.forEach(function (f) { ul.appendChild(el('li', null, [icon('check'), el('span', { text: f })])); });
-    $('.plan-terms', card).textContent = 'Итого: ' + p.title + ' · ' + l.title + ' — ' + p.videos + ' роликов до ' + p.maxSec + ' с за ' + subPrice(planId, level) + '.';
-    if (!silent) haptic('select');
+    $('.pt-title', card).textContent = p.title;
+    $('.pt-pill', card).textContent = planVideos(p) + '/' + (SUBS().period || 'мес');
+    $('.plan-meta', card).textContent = p.meta || '';
+    var ok = priceOk(p, level);
+    $('.pp', card).textContent = ok ? num(p.price[level]) + ' ' + (cfg.currency || '₽') : 'Цена по запросу';
+    $('.pp-per', card).hidden = !ok;
+    var ul = $('.perks', card); ul.textContent = '';
+    (p.perks || []).forEach(function (f) { ul.appendChild(el('li', null, [icon('check'), el('span', { text: f })])); });
+    ul.hidden = !(p.perks || []).length;
+    $('[data-sub-order]', card).textContent = ok ? 'Оформить · ' + subPrice(p.id, level) : 'Обсудить цену';
   }
+  function setLevel(key, level, silent) { if (!levelOf(level)) return; subSel[key] = level; updateCard(key); if (!silent) haptic('select'); }
+  function setVariant(key, planId) { if (!planOf(planId)) return; cardPlan[key] = planId; updateCard(key); haptic('select'); }
+  function setFmt(id) { if (id === subFmt) return; subFmt = id; haptic('select'); renderSubs(); }
   function setMode(mode) {
     if (!SUBS().plans.length) mode = 'once';
     priceMode = mode;
@@ -523,8 +579,9 @@
     if (mode === 'subs') { $('#logoVideo').pause(); observe($('#subsPane')); document.documentElement.style.setProperty('--hue', '0deg'); }
     else selectCat(currentCat, false);
   }
-  function openSubOrder(planId) {
-    var level = subSel[planId]; if (!planOf(planId) || !levelOf(level)) return;
+  function openSubOrder(key) {
+    var planId = cardPlan[key], level = subSel[key]; if (!planOf(planId) || !levelOf(level)) return;
+    if (planOf(planId).allLevels) level = SUBS().levels[SUBS().levels.length - 1].id;
     orderSub = { planId: planId, level: level };
     applyOrderMode();
     go('order');
@@ -536,8 +593,8 @@
     var p = planOf(orderSub.planId), l = levelOf(orderSub.level);
     box.textContent = '';
     box.appendChild(el('div', { class: 'ss-top' }, [el('span', { class: 'label', text: 'Выбранная подписка' }), el('button', { class: 'link-btn', type: 'button', 'data-mode-open': 'subs', text: 'Изменить' })]));
-    box.appendChild(el('b', { text: p.title + ' · ' + l.title }));
-    box.appendChild(el('small', { text: p.videos + ' роликов в месяц, до ' + p.maxSec + ' секунд каждый' }));
+    box.appendChild(el('b', { text: (p.label || p.title) + ' · ' + l.title }));
+    box.appendChild(el('small', { text: planVideos(p) + ' в месяц · ' + (p.meta || '').toLowerCase() }));
     box.appendChild(el('div', { class: 'ss-price', text: subPrice(p.id, l.id) }));
     box.hidden = false;
     $('#sourceLabel').textContent = 'Ссылка на материалы (если уже есть)'; $('#fSource').placeholder = 'необязательно'; $('#sourceReq').hidden = true;
@@ -554,24 +611,24 @@
     var hb = $('#homePlan'), pc = $('#planCard');
     if (!ok) { hb.hidden = true; pc.hidden = true; return; }
     var p = planOf(plan.planId), l = levelOf(plan.level);
-    hb.textContent = p.title; hb.hidden = false;
+    hb.textContent = p.label || p.title; hb.hidden = false;
     pc.textContent = '';
-    pc.appendChild(el('div', { class: 'pl-top' }, [el('span', { class: 'plan-badge big', text: p.title }), el('span', { class: 'pill', text: l.title })]));
+    pc.appendChild(el('div', { class: 'pl-top' }, [el('span', { class: 'plan-badge big', text: p.label || p.title }), el('span', { class: 'pill', text: l.title })]));
     pc.appendChild(el('b', { text: 'Подписка активна' }));
-    pc.appendChild(el('small', { text: p.videos + ' роликов в месяц, до ' + p.maxSec + ' с · до ' + fmtDate(plan.until) }));
+    pc.appendChild(el('small', { text: planVideos(p) + ' в месяц · до ' + fmtDate(plan.until) }));
     pc.hidden = false;
   }
   function cachedPlan() { try { return JSON.parse(localStorage.getItem(PLAN_KEY) || 'null'); } catch (e) { return null; } }
   function storePlan(plan) { try { if (plan) localStorage.setItem(PLAN_KEY, JSON.stringify(plan)); else localStorage.removeItem(PLAN_KEY); } catch (e) {} }
 
-  var selected = { montage: null, logo: null };
+  var selected = { montage: null, youtube: null, logo: null };
   function updateCta() {
     var s = svc(selected[currentCat] || selected.montage);
     if (s) $('#priceCtaBtn').textContent = 'Оформить · ' + formatPrice(s);
   }
   function pick(id, silent) {
     var cat = catOf(id); selected[cat] = id; if (cat === 'montage') selectedMontage = id;
-    $$('#' + (cat === 'logo' ? 'logoList' : 'montageList') + ' .row').forEach(function (r) { var on = r.getAttribute('data-pick') === id; r.classList.toggle('on', on); r.setAttribute('aria-checked', on ? 'true' : 'false'); r.querySelector('.ico-tile').replaceChildren(icon(on ? 'check' : 'clock')); });
+    $$('#' + cat + 'List .row').forEach(function (r) { var on = r.getAttribute('data-pick') === id; r.classList.toggle('on', on); r.setAttribute('aria-checked', on ? 'true' : 'false'); r.querySelector('.ico-tile').replaceChildren(icon(on ? 'check' : 'clock')); });
     updateCta();
     if (!silent) haptic('select');
   }
@@ -591,7 +648,7 @@
     var c = cfg.categories[i]; $('#catSub').textContent = c.subtitle;
     $('#priceCta').hidden = id === 'dev' || priceMode === 'subs';
     updateCta();
-    document.documentElement.style.setProperty('--hue', (id === 'logo' ? -18 : id === 'dev' ? 16 : 0) + 'deg');
+    document.documentElement.style.setProperty('--hue', (id === 'logo' ? -18 : id === 'dev' ? 16 : id === 'youtube' ? -8 : 0) + 'deg');
     var v = $('#logoVideo'); if (id === 'logo' && currentScreen === 'prices' && !reduceMotion) { var p = v.play(); if (p && p.catch) p.catch(function () {}); } else v.pause();
   }
 
@@ -603,10 +660,11 @@
     $('#servicePrice').textContent = 'Предварительная стоимость: ' + formatPrice(s);
     var L = { montage: ['Ссылка на исходное видео или материалы', 'https://disk.yandex.ru/...', true],
       logo: ['Ссылка на ваш логотип (файл или профиль)', 'https://disk.yandex.ru/... или instagram.com/...', true],
-      dev: ['Ссылка на пример или ТЗ', 'необязательно', false] }[cat];
+      dev: ['Ссылка на пример или ТЗ', 'необязательно', false] }[cat === 'youtube' ? 'montage' : cat];
     $('#sourceLabel').textContent = L[0]; $('#fSource').placeholder = L[1]; $('#sourceReq').hidden = !L[2];
-    var ef = $('#extrasField'); ef.hidden = cat !== 'montage';
-    if (cat !== 'montage') $$('input[name="extras"]', ef).forEach(function (c) { c.checked = false; });
+    var withExtras = cat === 'montage' || cat === 'youtube';
+    var ef = $('#extrasField'); ef.hidden = !withExtras;
+    if (!withExtras) $$('input[name="extras"]', ef).forEach(function (c) { c.checked = false; });
     setError('sourceUrl', '');
   }
 
@@ -684,7 +742,7 @@
     $('#pDone').textContent = orders.filter(function (o) { return o.status === 'done'; }).length;
     orders.forEach(function (o, i) {
       var s = svc(o.serviceId), st = STATUS[o.status] || STATUS.sent, sb = parseSubId(o.serviceId);
-      var title = sb ? subTitle(sb) : s ? s.title + (s.cat === 'montage' || !s.cat ? ' · ' + s.duration : '') : 'Заказ';
+      var title = sb ? subTitle(sb) : s ? s.title + (s.cat === 'montage' || s.cat === 'youtube' || !s.cat ? ' · ' + s.duration : '') : 'Заказ';
       var steps = el('div', { class: 'o-steps' }, ['sent', 'work', 'done'].map(function (k, n) {
         var order = { sent: 0, work: 1, done: 2, cancel: -1 }[o.status] || 0;
         return el('i', { class: n <= order ? 'on' : '' });
@@ -976,13 +1034,15 @@
   function bind() {
     document.addEventListener('click', function (e) {
       if (!cfg) return;
-      var t = e.target.closest('[data-go],[data-action],[data-service],[data-cat],[data-seg],[data-mode],[data-mode-open],[data-lvl],[data-sub-order],[data-pick],[data-work],[data-filter],[data-url],.tile');
+      var t = e.target.closest('[data-go],[data-action],[data-service],[data-cat],[data-seg],[data-mode],[data-mode-open],[data-lvl],[data-var],[data-fmt],[data-sub-order],[data-pick],[data-work],[data-filter],[data-url],.tile');
       if (!t) return;
       if (t.hasAttribute('data-service')) { haptic('light'); openOrder(t.getAttribute('data-service')); return; }
       if (t.hasAttribute('data-cat')) { haptic('light'); currentCat = t.getAttribute('data-cat'); go('prices'); setMode('once'); return; }
       if (t.hasAttribute('data-seg')) { haptic('select'); selectCat(t.getAttribute('data-seg'), true); return; }
       if (t.hasAttribute('data-mode')) { haptic('select'); setMode(t.getAttribute('data-mode')); return; }
       if (t.hasAttribute('data-mode-open')) { haptic('light'); if (currentScreen !== 'prices') go('prices'); setMode(t.getAttribute('data-mode-open')); return; }
+      if (t.hasAttribute('data-fmt')) { setFmt(t.getAttribute('data-fmt')); return; }
+      if (t.hasAttribute('data-var')) { setVariant(t.getAttribute('data-var-card'), t.getAttribute('data-var')); return; }
       if (t.hasAttribute('data-lvl')) { setLevel(t.getAttribute('data-plan'), t.getAttribute('data-lvl')); return; }
       if (t.hasAttribute('data-sub-order')) { haptic('light'); openSubOrder(t.getAttribute('data-sub-order')); return; }
       if (t.hasAttribute('data-pick')) { pick(t.getAttribute('data-pick')); return; }

@@ -101,11 +101,13 @@ const PLANS = new Map((SUBS.plans || []).map(p => [p.id, p]));
 const LEVELS = new Map((SUBS.levels || []).map(l => [l.id, l]));
 function subLabel(sub) {
   const p = PLANS.get(sub.planId), l = LEVELS.get(sub.level);
-  return p && l ? `Подписка ${p.title} · ${l.title}` : 'Подписка';
+  return p && l ? `Подписка ${p.label || p.title} · ${l.title}` : 'Подписка';
 }
 function subPrice(sub) {
   const p = PLANS.get(sub.planId);
-  return p ? p.price[sub.level].toLocaleString('ru-RU') + ' ' + config.currency + '/' + (SUBS.period || 'мес') : '';
+  if (!p || !p.price) return '';
+  const v = p.price[sub.level];
+  return typeof v === 'number' ? v.toLocaleString('ru-RU') + ' ' + config.currency + '/' + (SUBS.period || 'мес') : 'цена по запросу';
 }
 
 /* ---------- Проверка initData по официальному алгоритму Telegram ----------
@@ -176,7 +178,7 @@ function validateOrder(b, hasVerifiedUser) {
     const sb = b.subscription;
     const planId = sb && typeof sb === 'object' ? str(sb.planId) : '', level = sb && typeof sb === 'object' ? str(sb.level) : '';
     const plan = PLANS.get(planId);
-    if (!plan || !LEVELS.has(level) || !plan.price || typeof plan.price[level] !== 'number') fields.subscription = 'Выберите тариф и уровень анимации.';
+    if (!plan || !LEVELS.has(level) || !plan.price || !(typeof plan.price[level] === 'number' || plan.price[level] === null)) fields.subscription = 'Выберите тариф и уровень анимации.';
     else o.subscription = { planId, level };
     o.serviceId = '';
     if (o.extras.length) fields.extras = 'Дополнительные услуги к подписке обсуждаются отдельно.';

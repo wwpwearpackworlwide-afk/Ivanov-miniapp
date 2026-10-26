@@ -102,9 +102,15 @@
         <p class="note" id="extrasNote"></p>
       </div>
 
+      <div class="cat-pane" data-pane="youtube" hidden>
+        <div class="lbl"><span>Длина видео</span></div>
+        <div class="card glass list" id="youtubeList" role="radiogroup" aria-label="Длина видео"></div>
+        <p class="note" id="ytNote"></p>
+      </div>
+
       <div class="cat-pane" data-pane="logo" hidden>
         <div class="logo-card glass">
-          <div class="logo-video"><video id="logoVideo" src="assets/prev-logo.mp4" poster="assets/prev-logo.jpg" muted loop playsinline preload="metadata" aria-label="Пример анимации логотипа"></video></div>
+          <div class="logo-video"><video id="logoVideo" src="assets/prev-logo-wide.mp4" poster="assets/prev-logo-wide.jpg" muted loop playsinline preload="metadata" aria-label="Пример анимации логотипа"></video></div>
         </div>
         <div class="lbl"><span>Длина анимации</span></div>
         <div class="card glass list" id="logoList" role="radiogroup" aria-label="Длина анимации"></div>
@@ -126,7 +132,10 @@
 
       <div id="subsPane" hidden>
         <p class="screen-sub" id="subsSub"></p>
+        <div class="mode-seg glass fmt-seg" id="fmtSeg" role="tablist" aria-label="Формат роликов"><i class="mode-thumb" aria-hidden="true"></i></div>
+        <p class="note fmt-note" id="fmtNote"></p>
         <div class="lvl-legend" id="lvlLegend"></div>
+        <details class="lvl-details glass" id="lvlDetails"><summary>Что входит в каждый уровень</summary><div class="lvl-cols" id="lvlCols"></div></details>
         <div id="planList" class="plan-list"></div>
       </div>
 

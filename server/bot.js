@@ -32,13 +32,14 @@ function createBot({ env, config, appUrl, orders }) {
     prices: () => {
       const of = cat => config.services.filter(s => (s.cat || 'montage') === cat);
       const old = s => s.oldPrice ? ` <s>${esc(s.oldPrice.toLocaleString('ru-RU').replace(/\u00a0| /g, ' '))} ${esc(config.currency)}</s>` : '';
-      const dev = of('dev'), logo = of('logo');
+      const dev = of('dev'), logo = of('logo'), yt = of('youtube');
       return '<b>Цены на монтаж</b>\n\n' +
         of('montage').map(s => `▸ ${esc(s.duration)} — <b>${esc(price(s))}</b>`).join('\n') +
         '\n\n<b>Дополнительно</b> (по договорённости):\n' + config.extras.map(x => '▸ ' + esc(x.title)).join('\n') +
+        (yt.length ? '\n\n<b>YouTube (горизонтальные видео 16:9)</b>\n' + yt.map(s => `▸ ${esc(s.duration)} — <b>${esc(price(s))}</b>`).join('\n') : '') +
         (logo.length ? '\n\n<b>Анимация логотипа</b>\n' + logo.map(s => `▸ ${esc(s.duration)} — <b>${esc(price(s))}</b>`).join('\n') : '') +
         (dev.length ? '\n\n<b>Боты и мини-приложения</b>\n' + dev.map(s => `▸ ${esc(s.title)} — <b>${esc(price(s))}</b>${old(s)}`).join('\n') : '') +
-        '\n\nМонтаж зависит только от длины ролика. Заказ — в Магазине 👇';
+        '\n\nМонтаж зависит только от длины ролика. Подписки на рилсы и YouTube — в Магазине, раздел «Цены» 👇';
     },
     works: () => {
       const real = (config.portfolio || []).filter(w => /^https?:\/\//.test(w.url || ''));
@@ -164,7 +165,7 @@ function createBot({ env, config, appUrl, orders }) {
     }
     const [, planId, level] = o.serviceId.split(':');
     const plan = (SUBS.plans || []).find(p => p.id === planId), lvl = (SUBS.levels || []).find(l => l.id === level);
-    const name = plan && lvl ? `${plan.title} · ${lvl.title}` : 'подписка';
+    const name = plan && lvl ? `${plan.label || plan.title} · ${lvl.title}` : 'подписка';
     let until = 0;
     if (act === 'on') {
       const base = Math.max(Date.now(), o.planUntil || 0);      // повторная оплата продлевает, а не сбрасывает
