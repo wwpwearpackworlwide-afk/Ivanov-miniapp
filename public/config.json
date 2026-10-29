@@ -310,6 +310,17 @@
       "isNew": true
     },
     {
+      "id": "logo-v4",
+      "cat": "logo",
+      "title": "Новый логотип",
+      "tag": "Логотип · 5,6 сек",
+      "description": "Мой новый логотип: плейхед рисует звуковую волну, она собирается в клип, клип летит по ключевым кадрам, и плейхед разрезает его на два — это и есть знак.",
+      "cover": "assets/work-logo-v4.png",
+      "preview": "assets/prev-logo-v4.mp4",
+      "url": "",
+      "isNew": true
+    },
+    {
       "id": "klinika-logo",
       "cat": "logo",
       "title": "Логотип клиники",
