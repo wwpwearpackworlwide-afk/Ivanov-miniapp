@@ -468,3 +468,113 @@ button.avatar:active{transform:scale(.92)}
 .plan-card .pl-top{display:flex;gap:8px;align-items:center;margin-bottom:6px}
 .plan-card small{color:var(--steel);font-size:13px}
 @media (prefers-reduced-motion:reduce){.mode-thumb{transition:none}#subsPane{animation:none}}
+
+/* =====================================================================
+   v3 · МИНИМАЛИЗМ (01.11.2026)
+   Принцип: тишина вокруг главного. Плоский Ink, тонкие линии вместо стекла и теней,
+   крупная типографика, один синий акцент — только у главного действия и выбранного.
+   Золото — только цены и деньги. Слой перекрывает стили выше; разметку не меняет.
+   ===================================================================== */
+:root{--line:rgba(255,255,255,.08);--line2:rgba(255,255,255,.14);--r:22px;--surface:rgba(255,255,255,.028);
+  --head:"Montserrat","Onest",system-ui,sans-serif;--ease:cubic-bezier(.2,.8,.2,1)}
+body{font-weight:500;letter-spacing:-.005em}
+
+/* фон: одно мягкое свечение сверху, без дрейфа и смены оттенка */
+.bg{filter:none;background:radial-gradient(120% 55% at 50% -12%,rgba(47,107,255,.16),transparent 60%),var(--ink)}
+.blob{display:none}
+
+/* поверхности: никакого стекла — тонкая линия и почти незаметная заливка */
+.glass{background:var(--surface);border:1px solid var(--line);box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+
+/* типографика */
+.screen-title,.hero-title,.login-title{font-family:var(--head);font-weight:900;letter-spacing:-.025em}
+.screen-title{font-size:clamp(28px,8.6vw,34px);line-height:1.05}
+.screen-sub,.hero-text,.note{font-weight:400;color:var(--steel)}
+.lbl{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.14em;margin:36px 2px 12px;color:rgba(242,244,248,.45)}
+.lbl b{color:inherit}
+.screen{animation:screenIn .3s var(--ease) both}
+@keyframes screenIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.reveal{filter:none;transform:translateY(12px);transition:opacity .5s var(--ease),transform .5s var(--ease)}
+
+/* кнопки: плоские, без свечения */
+.btn{border-radius:16px;font-weight:600;transition:transform .2s var(--ease),background .25s,opacity .25s}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--blue);box-shadow:none}
+.btn-light{background:var(--chalk);box-shadow:none}
+.btn-glass{background:transparent;border:1px solid var(--line2);box-shadow:none}
+.icon-btn.glass{background:transparent;border-color:var(--line2)}
+.pill{font-weight:600}
+.pill.gold{background:transparent;color:var(--gold);border:1px solid rgba(232,184,74,.45)}
+.pill.blue{background:rgba(47,107,255,.14);color:#9DB8FF}
+
+/* главная: без карточки-героя, много воздуха */
+.hero{background:none;border:0;box-shadow:none;padding:0 2px;margin-top:8px;border-radius:0}
+.hero-logo{height:180px;margin:0}
+.hero-title{font-size:clamp(28px,9.4vw,38px);line-height:1.02;margin-top:6px;overflow-wrap:anywhere}
+.hero-text{font-size:15px;line-height:1.5;margin-top:12px;max-width:34ch}
+.hero-actions{margin-top:24px}
+.avatar{box-shadow:none;border:1px solid var(--line2);background:var(--surface)}
+.l3d-shadow{opacity:.35}
+
+/* списки: строки-линии с разделителями */
+.list{padding:0 4px}
+.card.list{border-radius:var(--r)}
+.row{border-radius:14px;min-height:64px;padding:12px}
+.row+.row{margin-top:0;box-shadow:0 -1px 0 var(--line)}
+.ico-tile{background:transparent;border:1px solid var(--line2);border-radius:12px;width:40px;height:40px}
+.ico-tile.blue{background:transparent;border-color:rgba(47,107,255,.6);color:#9DB8FF}
+.rt b{font-weight:600}
+.rt small{font-weight:400}
+.pr{font-weight:600}
+.row.on{background:rgba(47,107,255,.10);box-shadow:inset 0 0 0 1px rgba(47,107,255,.55)}
+.row.on .ico-tile{background:var(--blue);border-color:var(--blue);color:#fff}
+.row.on small{color:var(--steel)}
+.row.on .chev{color:#9DB8FF}
+.feature{background:transparent;border:1px solid var(--line);box-shadow:none}
+.feature .ico-tile{color:var(--chalk)}
+.hcard{border-radius:16px;border:1px solid var(--line);background:transparent}
+.hcard span{font-weight:500}
+
+/* переключатели: тонкая подложка, бегунок — светлая линия, без градиентов */
+.seg,.mode-seg{background:transparent;border:1px solid var(--line);padding:4px;border-radius:16px}
+.seg-thumb,.mode-thumb{background:rgba(255,255,255,.09);box-shadow:none;border-radius:12px}
+.mode-seg button[aria-selected="true"],.seg button[aria-selected="true"]{color:var(--chalk)}
+.mode-seg button{font-weight:600}
+.chip{background:transparent;border-color:var(--line2);font-weight:500}
+.chip[aria-selected="true"]{background:var(--chalk);border-color:var(--chalk)}
+
+/* цены и подписки */
+.bundle{background:transparent;border:1px solid rgba(232,184,74,.35);box-shadow:none}
+.bundle:after{display:none}
+.big-price{font-family:var(--head);font-weight:900;letter-spacing:-.02em}
+.plan{background:transparent;border:1px solid var(--line);box-shadow:none}
+.plan.adv{box-shadow:none;border-color:rgba(157,184,255,.35)}
+.plan-card{background:transparent;border:1px solid rgba(47,107,255,.45)}
+.logo-card,.work-info,.review,.profile-card,.order-card,.about-card{background:transparent;border:1px solid var(--line);box-shadow:none}
+.sticky-cta:before{background:linear-gradient(180deg,rgba(6,11,31,0),var(--ink) 40%)}
+
+/* работы */
+.tile{border:1px solid var(--line);border-radius:16px}
+.tile.on{box-shadow:0 0 0 1.5px var(--blue)}
+.stage-shadow{opacity:.4}
+
+/* форма */
+input,select,textarea{background:transparent;border:1px solid var(--line2);border-radius:14px;box-shadow:none;font-weight:500}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(47,107,255,.18)}
+.label{font-weight:600}
+
+/* навигация: спокойная панель, активная вкладка — точка, а не светящаяся плашка */
+.tabbar{background:rgba(6,11,31,.92);border:1px solid var(--line);box-shadow:0 10px 30px rgba(0,0,0,.35);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-radius:24px}
+.tab{font-weight:500}
+.tab.active{color:var(--chalk)}
+.tab.active svg{transform:none}
+.tab-ind{top:auto;bottom:6px;height:4px;align-items:center}
+.tab-ind:before{width:4px;height:4px;border-radius:2px;background:var(--blue);box-shadow:none}
+
+/* меню */
+.drawer{background:var(--ink);border-right:1px solid var(--line);box-shadow:none}
+.dr-item.on{background:rgba(47,107,255,.10);box-shadow:inset 0 0 0 1px rgba(47,107,255,.55)}
+.dr-item.on .ico-tile{background:var(--blue);border-color:var(--blue)}
+.dr-cta{background:transparent;border:1px solid var(--line)}
+.dr-cta .plus{box-shadow:none}
+.toast{background:var(--ink);border-color:var(--line2)}
