@@ -3,6 +3,7 @@
    пересылка сообщений клиентов владельцу и ответы владельца клиентам через бота.
    Работает через webhook на этом же сервере. Тексты — в public/config.json → "bot". */
 const crypto = require('crypto');
+const montage = require('./montage-plan');
 
 function createBot({ env, config, appUrl, orders }) {
   const B = config.bot || {};
@@ -23,6 +24,66 @@ function createBot({ env, config, appUrl, orders }) {
     const j = await res.json().catch(() => ({}));
     if (!j.ok) throw new Error(`${method}: ${j.description || res.status}`);
     return j.result;
+  }
+
+  // Отправка файла (multipart, без библиотек: FormData и Blob есть в Node 18+)
+  async function sendFile(chatId, filename, content, caption) {
+    const fd = new FormData();
+    fd.append('chat_id', String(chatId));
+    fd.append('document', new Blob([content], { type: 'text/javascript' }), filename);
+    if (caption) { fd.append('caption', caption); fd.append('parse_mode', 'HTML'); }
+    const res = await fetch(`${env.TELEGRAM_API_BASE}/bot${env.BOT_TOKEN}/sendDocument`, { method: 'POST', body: fd, signal: AbortSignal.timeout(20000) });
+    const j = await res.json().catch(() => ({}));
+    if (!j.ok) throw new Error('sendDocument: ' + (j.description || res.status));
+    return j.result;
+  }
+  async function downloadFile(fileId, maxBytes = 1024 * 1024) {
+    const f = await api('getFile', { file_id: fileId });
+    if (!f.file_path || (f.file_size && f.file_size > maxBytes)) throw new Error('файл слишком большой');
+    const res = await fetch(`${env.TELEGRAM_API_BASE}/file/bot${env.BOT_TOKEN}/${f.file_path}`, { signal: AbortSignal.timeout(15000) });
+    if (!res.ok) throw new Error('не скачался: ' + res.status);
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length > maxBytes) throw new Error('файл слишком большой');
+    return buf.toString('utf8');
+  }
+
+  /* ---------- Монтаж: SRT → черновик плана ролика (только для владельца) ---------- */
+  const PLAN_HELP = '<b>План ролика из субтитров</b>\n\n' +
+    '1. В CapCut: Текст → Автосубтитры → Экспорт → <b>SRT</b>.\n' +
+    '2. Пришли сюда файл <code>.srt</code> (или вставь текст субтитров сообщением).\n' +
+    '3. Получишь файл плана для движка montazh-remotion: слова с таймкодами, выделение iPhone, сцены P/D/сплит, лого в конце.\n\n' +
+    'Подпись к файлу меняет настройки: <code>16:9</code> — YouTube, <code>клиент</code> — без моего лого, <code>петля</code> — без лого для рилса-петли.\n\n' +
+    'Файл положи в <code>src/plans/</code>, проверь: <code>npm run check src/plans/имя.js</code>.';
+  async function makePlan(m, srtText, baseName) {
+    const flags = String(m.caption || m.text || '').toLowerCase();
+    const cues = montage.parseSrt(srtText);
+    if (!cues.length) return api('sendMessage', { chat_id: m.chat.id, text: 'Не нашёл в файле ни одной фразы с таймкодом. Нужен формат SRT: 00:00:01,000 --> 00:00:02,500.' });
+    const plan = montage.autoPlan(cues, {
+      format: /16[:x×]9|youtube|ютуб/.test(flags) ? '16x9' : '9x16',
+      client: /клиент/.test(flags),
+      loop: /петл/.test(flags)
+    });
+    const sm = montage.summary(plan);
+    const name = (baseName || 'plan').replace(/\.[^.]+$/, '').replace(/[^a-z0-9а-яё_-]+/gi, '-').slice(0, 40) || 'plan';
+    const caption = `🎬 <b>Черновик плана</b> · ${esc(plan.format.replace('x', ':'))}\n` +
+      `Фраз ${cues.length} · сцен ${sm.scenes} · ${sm.total.toFixed(1)} с\n` +
+      `Ваше видео ${Math.round(100 - sm.share * 100)}% / motion ${Math.round(sm.share * 100)}%\n` +
+      (sm.d.length ? `D-сцены: ${esc(sm.d.join(', '))}\n` : '') +
+      '\nПроверь хук, тексты D-сцен и цифры — это черновик.';
+    await sendFile(m.chat.id, name + '.js', montage.planToModule(plan), caption);
+  }
+  async function onOwnerMontage(m) {
+    const doc = m.document;
+    try {
+      if (doc) {
+        await api('sendChatAction', { chat_id: m.chat.id, action: 'upload_document' }).catch(() => {});
+        return await makePlan(m, await downloadFile(doc.file_id), doc.file_name);
+      }
+      return await makePlan(m, m.text, 'plan-' + new Date().toISOString().slice(0, 10));
+    } catch (e) {
+      console.error('[bot] plan:', e.message);
+      return api('sendMessage', { chat_id: m.chat.id, text: '⚠️ Не получилось сделать план: ' + e.message });
+    }
   }
 
   /* ---------- Тексты разделов ---------- */
@@ -222,8 +283,11 @@ function createBot({ env, config, appUrl, orders }) {
     if (cmd && COMMANDS[cmd]) return sendCard(m.chat.id, COMMANDS[cmd], m.from);
     if (m.web_app_data) return; // данные из Mini App обрабатывает /api/order
     if (isOwner) {
+      if (cmd === '/plan') return api('sendMessage', { chat_id: m.chat.id, text: PLAN_HELP, parse_mode: 'HTML' });
+      const isSrtDoc = m.document && (/\.srt$/i.test(m.document.file_name || '') || /subrip/i.test(m.document.mime_type || ''));
+      if (!m.reply_to_message && (isSrtDoc || montage.looksLikeSrt(text))) return onOwnerMontage(m);
       if (m.reply_to_message) return ownerReply(m);
-      return api('sendMessage', { chat_id: m.chat.id, text: 'Это вы — владелец бота 🙂 Чтобы ответить клиенту, ответьте (Reply) на его пересланное сообщение.' });
+      return api('sendMessage', { chat_id: m.chat.id, text: 'Это вы — владелец бота 🙂 Чтобы ответить клиенту, ответьте (Reply) на его пересланное сообщение.\n\n🎬 Пришлите субтитры .srt из CapCut — сделаю черновик плана ролика. Подробнее: /plan' });
     }
     if (cmd) return sendCard(m.chat.id, 'menu', m.from);
     return relayToOwner(m);
@@ -265,6 +329,14 @@ function createBot({ env, config, appUrl, orders }) {
       { command: 'about', description: 'Обо мне' },
       { command: 'contacts', description: 'Контакты' }
     ] });
+    // владельцу в меню команд дополнительно /plan (клиенты её не видят)
+    if (owner) {
+      await api('setMyCommands', { scope: { type: 'chat', chat_id: Number(owner) }, commands: [
+        { command: 'plan', description: '🎬 План ролика из субтитров .srt' },
+        { command: 'start', description: 'Главное меню' },
+        { command: 'shop', description: 'Магазин' }
+      ] }).catch(e => console.error('[bot] команды владельца:', e.message));
+    }
     await api('setChatMenuButton', { menu_button: { type: 'web_app', text: 'Магазин', web_app: { url: appUrl } } });
     console.log('[bot] команды и кнопка «Магазин» настроены');
   }

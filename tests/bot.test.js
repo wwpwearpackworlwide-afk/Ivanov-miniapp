@@ -12,15 +12,19 @@ const SECRET = crypto.createHash('sha256').update('webhook:' + TOKEN).digest('he
 const calls = [];
 let nextId = 1000;
 
+const SRT = '1\n00:00:00,200 --> 00:00:02,300\nТри ошибки монтажа, из-за которых рилс листают.\n\n2\n00:00:02,400 --> 00:00:05,000\nМонтаж это не халтура, а инструмент.\n\n3\n00:00:05,100 --> 00:00:07,600\nПишите в бот, отвечу сегодня.\n';
 const mock = http.createServer((req, res) => {
+  if (req.url.startsWith('/file/')) { calls.push({ method: 'FILE', body: { url: req.url } }); res.writeHead(200); return res.end(SRT); }
   let b = ''; req.on('data', c => (b += c)); req.on('end', () => {
     const method = req.url.split('/').pop();
-    const body = JSON.parse(b || '{}');
+    const multipart = /multipart/.test(req.headers['content-type'] || '');
+    const body = multipart ? { raw: b } : JSON.parse(b || '{}');
     calls.push({ method, body });
     let result = true;
     if (method === 'getWebhookInfo') result = { url: '' };
     if (method === 'sendPhoto') result = { message_id: ++nextId, photo: [{ file_id: 'small' }, { file_id: 'PHOTO_FILE_ID' }] };
-    if (['sendMessage', 'forwardMessage', 'copyMessage'].includes(method)) result = { message_id: ++nextId };
+    if (['sendMessage', 'forwardMessage', 'copyMessage', 'sendDocument'].includes(method)) result = { message_id: ++nextId };
+    if (method === 'getFile') result = { file_id: body.file_id, file_size: 400, file_path: 'documents/file_1.srt' };
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ ok: true, result }));
   });
@@ -235,6 +239,52 @@ async function t(name, fn) { try { await fn(); results.push('✅ ' + name); } ca
   await t('кнопку «Оплачено» нельзя применить к обычному заказу', async () => {
     await hook({ update_id: 6, callback_query: { id: 'cq6', from: { id: Number(OWNER) }, data: `sp:on:${oid}:${buyer.id}`, message: { message_id: 5, chat: { id: Number(OWNER) } } } });
     await wait(150); assert.strictEqual((await myOrders(sign(buyer))).body.plan, null);
+  });
+
+  /* ---------- Монтаж: SRT → план (только владелец) ---------- */
+  const ownerU = { id: Number(OWNER), first_name: 'Иван' };
+  await t('у владельца в меню команд есть /plan, у клиентов — нет', async () => {
+    const all = calls.filter(c => c.method === 'setMyCommands');
+    const own = all.find(c => c.body.scope && c.body.scope.chat_id === Number(OWNER));
+    assert.ok(own && own.body.commands.some(c => c.command === 'plan'));
+    assert.ok(!all.find(c => !c.body.scope).body.commands.some(c => c.command === 'plan'));
+  });
+  n = calls.length;
+  await t('владелец: /plan → инструкция про SRT из CapCut', async () => {
+    await hook(msg(ownerU, '/plan')); await wait(200);
+    const m = since(n).find(c => c.method === 'sendMessage');
+    assert.ok(m && m.body.text.includes('SRT') && m.body.text.includes('CapCut'));
+  });
+  n = calls.length;
+  await t('владелец присылает .srt → бот скачивает и отвечает файлом плана', async () => {
+    await hook(msg(ownerU, undefined, { document: { file_id: 'DOC1', file_name: 'rils 3 oshibki.srt', mime_type: 'application/x-subrip' }, caption: '' })); await wait(500);
+    const got = since(n);
+    assert.ok(got.find(c => c.method === 'getFile' && c.body.file_id === 'DOC1'), 'нет getFile');
+    assert.ok(got.find(c => c.method === 'FILE' && c.body.url.includes('/file/bot' + TOKEN + '/documents/file_1.srt')), 'не скачал');
+    const d = got.find(c => c.method === 'sendDocument');
+    assert.ok(d, 'нет sendDocument');
+    assert.ok(d.body.raw.includes('filename="rils-3-oshibki.js"'), 'имя файла');
+    assert.ok(d.body.raw.includes('export const plan') && d.body.raw.includes('"mode": "LOGO"') && d.body.raw.includes('M02-StrikeReplace'), 'содержимое плана');
+    assert.ok(d.body.raw.includes('Черновик плана') && d.body.raw.includes('9:16'), 'подпись');
+    assert.ok(!got.find(c => c.method === 'forwardMessage'), 'не должен пересылать свой же файл');
+  });
+  n = calls.length;
+  await t('подпись «16:9 клиент» → план YouTube без лого', async () => {
+    await hook(msg(ownerU, undefined, { document: { file_id: 'DOC2', file_name: 'yt.srt' }, caption: '16:9 клиент' })); await wait(500);
+    const d = since(n).find(c => c.method === 'sendDocument');
+    assert.ok(d && d.body.raw.includes('"format": "16x9"') && !d.body.raw.includes('"mode": "LOGO"'));
+  });
+  n = calls.length;
+  await t('владелец вставил текст SRT сообщением → тоже план', async () => {
+    await hook(msg(ownerU, SRT)); await wait(400);
+    assert.ok(since(n).find(c => c.method === 'sendDocument'));
+  });
+  n = calls.length;
+  await t('клиент присылает .srt → обычная пересылка владельцу, план не делается', async () => {
+    await hook(msg({ id: 55, first_name: 'Клиент' }, undefined, { document: { file_id: 'DOC3', file_name: 'x.srt' } })); await wait(300);
+    const got = since(n);
+    assert.ok(got.find(c => c.method === 'forwardMessage'));
+    assert.ok(!got.find(c => c.method === 'sendDocument' || c.method === 'getFile'));
   });
 
   app.kill(); mock.close();
