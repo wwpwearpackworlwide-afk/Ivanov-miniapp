@@ -80,7 +80,7 @@ async function t(name, fn) { try { await fn(); results.push('✅ ' + name); } ca
     await hook(msg(client, '/start')); await wait(200);
     assert.strictEqual(since(n).find(c => c.method === 'sendPhoto').body.photo, 'PHOTO_FILE_ID');
   });
-  for (const [data, must] of [['prices', '2 400 ₽'], ['works', 'Instagram'], ['howto', 'Как проходит заказ'], ['faq', 'Как прислать видео'], ['about', 'Обо мне'], ['contacts', '@ivanovv50'], ['menu', 'Монтаж, который продаёт']]) {
+  for (const [data, must] of [['prices', '3 500 ₽'], ['works', 'Instagram'], ['howto', 'Как проходит заказ'], ['faq', 'Как прислать видео'], ['about', 'Обо мне'], ['contacts', '@ivanovv50'], ['menu', 'Монтаж, который продаёт']]) {
     n = calls.length;
     await t(`кнопка «${data}» меняет подпись карточки`, async () => {
       await hook({ update_id: 1, callback_query: { id: 'cq' + data, from: client, data, message: { message_id: 5, chat: { id: 42 }, photo: [{}] } } }); await wait(150);
@@ -92,7 +92,7 @@ async function t(name, fn) { try { await fn(); results.push('✅ ' + name); } ca
   }
   await t('все цены в разделе «Цены»', async () => {
     const e = calls.filter(c => c.method === 'editMessageCaption').find(c => c.body.caption.includes('Цены на монтаж'));
-    for (const p of ['400 ₽', '800 ₽', '1 200 ₽', '1 600 ₽', '2 000 ₽', '2 400 ₽', 'по договорённости']) assert.ok(e.body.caption.includes(p), p);
+    for (const p of ['1 300 ₽', '1 600 ₽', '1 900 ₽', '2 400 ₽', '3 000 ₽', '3 500 ₽', 'по договорённости']) assert.ok(e.body.caption.includes(p), p);
   });
   n = calls.length;
   await t('/price, /faq, /contacts, /portfolio — открывают нужный раздел', async () => {
@@ -203,7 +203,7 @@ async function t(name, fn) { try { await fn(); results.push('✅ ' + name); } ca
     const r = await subOrder({ planId: 'pro', level: 'advanced' });
     assert.ok(r.status === 200 && r.body.orderId, JSON.stringify(r.body)); sid = r.body.orderId; await wait(150);
     const toOwner = since(n).find(c => c.method === 'sendMessage' && String(c.body.chat_id) === OWNER);
-    assert.ok(toOwner.body.text.includes('PRO') && toOwner.body.text.includes('Advanced 3D') && /9\s?000/.test(toOwner.body.text.replace(/ /g, ' ')), toOwner.body.text);
+    assert.ok(toOwner.body.text.includes('PRO') && toOwner.body.text.includes('Advanced 3D') && /16\s?000/.test(toOwner.body.text.replace(/ /g, ' ')), toOwner.body.text);
     const kb = toOwner.body.reply_markup.inline_keyboard.flat().map(b => b.callback_data);
     assert.ok(kb.includes(`sp:on:${sid}:${subBuyer.id}`));
   });
