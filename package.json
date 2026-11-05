@@ -6,7 +6,7 @@
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
-    "test": "node tests/api.test.js"
+    "test": "node tests/api.test.js && node tests/bot.test.js && node tests/pay.test.js"
   },
   "engines": { "node": ">=18" },
   "license": "UNLICENSED"

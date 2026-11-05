@@ -206,7 +206,8 @@ function createBot({ env, config, appUrl, orders }) {
     const b = (st, text) => ({ text: (current === st ? '• ' : '') + text, callback_data: `st:${st}:${orderId}:${userId}` });
     const rows = [[b('work', '🛠 В работу'), b('done', '✅ Готово')], [b('cancel', '✖ Отменить')]];
     const o = orders && orders.get(orderId);
-    if (isSubOrder(orderId)) {
+    if (o && o.pay && o.pay !== 'paid') rows.push([{ text: '💳 Оплата пришла', callback_data: `pay:ok:${orderId}:${userId}` }]);
+    else if (isSubOrder(orderId)) {
       rows.push(o.planUntil > Date.now()
         ? [{ text: '⏹ Отключить план', callback_data: `sp:off:${orderId}:${userId}` }]
         : [{ text: '💳 Оплачено — включить план', callback_data: `sp:on:${orderId}:${userId}` }]);
@@ -216,6 +217,15 @@ function createBot({ env, config, appUrl, orders }) {
 
   /* ---------- План подписки: включает только владелец после получения оплаты ---------- */
   const PLAN_DAYS = 30;
+  function applyPlan(o, on) {
+    const [, planId, level] = o.serviceId.split(':');
+    const plan = (SUBS.plans || []).find(p => p.id === planId), lvl = (SUBS.levels || []).find(l => l.id === level);
+    const name = plan && lvl ? `${plan.label || plan.title} · ${lvl.title}` : 'подписка';
+    let until = 0;
+    if (on) until = Math.max(Date.now(), o.planUntil || 0) + PLAN_DAYS * 24 * 3600 * 1000;   // повторная оплата продлевает
+    orders.setPlan(o.id, until);
+    return {name, until};
+  }
   async function onPlan(cq) {
     const m = String(cq.data).match(/^sp:(on|off):([A-Z0-9]{5,16}):(\d{1,15})$/);
     if (!m || String(cq.from.id) !== owner) return api('answerCallbackQuery', { callback_query_id: cq.id, text: 'Недоступно' }).catch(() => {});
@@ -224,15 +234,7 @@ function createBot({ env, config, appUrl, orders }) {
     if (!o || !/^sub:/.test(o.serviceId || '') || String(o.userId) !== uid) {
       return api('answerCallbackQuery', { callback_query_id: cq.id, text: 'Заявка не найдена на сервере (мог быть перезапуск). Включить план не получится.', show_alert: true }).catch(() => {});
     }
-    const [, planId, level] = o.serviceId.split(':');
-    const plan = (SUBS.plans || []).find(p => p.id === planId), lvl = (SUBS.levels || []).find(l => l.id === level);
-    const name = plan && lvl ? `${plan.label || plan.title} · ${lvl.title}` : 'подписка';
-    let until = 0;
-    if (act === 'on') {
-      const base = Math.max(Date.now(), o.planUntil || 0);      // повторная оплата продлевает, а не сбрасывает
-      until = base + PLAN_DAYS * 24 * 3600 * 1000;
-    }
-    orders.setPlan(id, until);
+    const {name, until} = applyPlan(o, act === 'on');
     const date = new Date(until).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', timeZone: 'Asia/Novokuznetsk' });
     const text = act === 'on'
       ? `🎉 Подписка <b>${esc(name)}</b> активна до ${esc(date)}.\n\nПлан виден в приложении: Меню → «Мои заказы».`
@@ -259,6 +261,84 @@ function createBot({ env, config, appUrl, orders }) {
     api('answerCallbackQuery', { callback_query_id: cq.id, text: `№${id}: ${ST_TEXT[st]}` + (notified ? ' — клиент уведомлён' : ' — клиенту не дошло (бот остановлен)') }).catch(() => {});
   }
 
+
+  /* ---------- Оплата по реквизитам (Иван, 05.11) ----------
+     Бот сам присылает клиенту сумму, реквизиты (env PAY_DETAILS) и код заказа → клиент жмёт «Я оплатил» и
+     присылает чек → владельцу приходит чек с кнопкой «✅ Оплата пришла» → по нажатию всё остальное автоматом:
+     клиенту «оплата получена», заказ «в работе», подписка включается. Сама проверка денег — в банке, глазами владельца. */
+  const rub = n => Number(n).toLocaleString('ru-RU') + ' ₽';
+  const awaitingCheck = new Map();   // id клиента → номер заказа, по которому ждём чек
+  const payBtn = id => ({ inline_keyboard: [[{ text: '💳 Я оплатил', callback_data: `pay:sent:${id}` }]] });
+  async function requestPayment(id, uid, amount, what) {
+    const text = `✅ Заявка №${id} получена.\n${esc(what)}\n\n💳 <b>К оплате: ${rub(amount)}</b>\n\n${esc(env.PAY_DETAILS)}\n\n` +
+      `В комментарии к переводу укажите: <code>${id}</code>\n\nПосле перевода нажмите «Я оплатил» и пришлите скрин чека — монтаж начнётся сразу после подтверждения.`;
+    return api('sendMessage', { chat_id: Number(uid), text, parse_mode: 'HTML', reply_markup: payBtn(id) });
+  }
+  async function onPay(cq) {
+    const m = String(cq.data).match(/^pay:(sent|ok|no):([A-Z0-9]{5,16})(?::(\d{1,15}))?$/);
+    const ack = (text, alert) => api('answerCallbackQuery', { callback_query_id: cq.id, text, show_alert: !!alert }).catch(() => {});
+    if (!m) return ack('Недоступно');
+    const [, act, id, uidS] = m;
+    const o = orders && orders.get(id);
+    if (act === 'sent') {
+      if (!o || o.userId !== cq.from.id) return ack('Заказ не найден. Напишите сюда — разберёмся.', true);
+      if (o.pay === 'paid') return ack('Этот заказ уже оплачен ✅');
+      awaitingCheck.set(cq.from.id, id);
+      ack();
+      return api('sendMessage', { chat_id: cq.from.id, text: `Пришлите скрин или файл чека по заказу №${id} одним сообщением 👇` });
+    }
+    if (String(cq.from.id) !== owner) return ack('Недоступно');
+    const uid = Number(uidS || (o && o.userId));
+    if (!o) return ack('Заказ не найден на сервере (мог быть перезапуск). Напишите клиенту вручную.', true);
+    if (act === 'ok') {
+      if (o.pay === 'paid') return ack('Уже подтверждено');
+      orders.setPay(id, 'paid');
+      orders.setStatus(id, 'work', uid);
+      let extra = '';
+      if (/^sub:/.test(o.serviceId || '')) {
+        const {name, until} = applyPlan(o, true);
+        extra = `\n\n🎉 Подписка <b>${esc(name)}</b> активна до ${esc(new Date(until).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', timeZone: 'Asia/Novokuznetsk' }))}.`;
+      }
+      let notified = true;
+      try { await api('sendMessage', { chat_id: uid, text: `✅ Оплата по заказу №${id} получена${o.amount ? ' (' + rub(o.amount) + ')' : ''}. Спасибо!\n\n🛠 Заказ уже в работе — напишу, как только будет готово.${extra}`, parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: '📋 Мои заказы', web_app: { url: appUrl + '/#profile' } }]] } }); }
+      catch (e) { notified = false; }
+      api('editMessageReplyMarkup', { chat_id: cq.message.chat.id, message_id: cq.message.message_id, reply_markup: { inline_keyboard: [[{ text: '✅ Оплачено · в работе', callback_data: 'noop' }]] } }).catch(() => {});
+      return ack(`№${id}: оплачено, в работе` + (notified ? ' — клиент уведомлён' : ' — клиенту не дошло'));
+    }
+    // act === 'no': чек не подтверждён
+    orders.setPay(id, 'wait');
+    let notified = true;
+    try { await api('sendMessage', { chat_id: uid, text: `Пока не вижу перевод по заказу №${id}. Проверьте, что он прошёл, и нажмите «Я оплатил» ещё раз — или напишите сюда.`, reply_markup: payBtn(id) }); }
+    catch (e) { notified = false; }
+    api('editMessageReplyMarkup', { chat_id: cq.message.chat.id, message_id: cq.message.message_id, reply_markup: { inline_keyboard: [[{ text: '✖ Не подтверждено', callback_data: 'noop' }]] } }).catch(() => {});
+    return ack('Клиенту отправлено' + (notified ? '' : ' — не дошло'));
+  }
+  // чек от клиента → владельцу с кнопками
+  async function onCheck(m, id) {
+    awaitingCheck.delete(m.from.id);
+    const o = orders.get(id);
+    orders.setPay(id, 'check');
+    const u = m.from, name = [u.first_name, u.last_name].filter(Boolean).join(' ');
+    await api('sendMessage', { chat_id: owner, parse_mode: 'HTML',
+      text: `💳 <b>Чек по заказу №${id}</b>${o && o.amount ? ' · ' + rub(o.amount) : ''}\n${esc(name)}${u.username ? ' (@' + esc(u.username) + ')' : ''}\n\nПроверь поступление в банке (комментарий <code>${id}</code>) и нажми кнопку 👇`,
+      reply_markup: { inline_keyboard: [[{ text: '✅ Оплата пришла', callback_data: `pay:ok:${id}:${u.id}` }, { text: '✖ Не пришла', callback_data: `pay:no:${id}:${u.id}` }]] } });
+    await api('forwardMessage', { chat_id: owner, from_chat_id: m.chat.id, message_id: m.message_id });
+    await api('sendMessage', { chat_id: m.chat.id, text: `🧾 Чек по заказу №${id} получен. Как только Иван подтвердит оплату, я сразу напишу.` });
+  }
+  // владелец: /pay НОМЕР СУММА — выставить счёт, если цена не фиксированная («от …», доп. услуги)
+  async function ownerPayCmd(m, text) {
+    const mm = text.match(/^\/pay\s+([A-Z0-9]{5,16})\s+(\d{2,7})$/i);
+    if (!mm) return api('sendMessage', { chat_id: m.chat.id, text: 'Формат: /pay НОМЕР_ЗАКАЗА СУММА\nНапример: /pay LX3K9A1B2 4500' });
+    if (!env.PAY_DETAILS) return api('sendMessage', { chat_id: m.chat.id, text: '⚠️ Реквизиты не заданы: добавь переменную PAY_DETAILS в настройках Render.' });
+    const id = mm[1].toUpperCase(), amount = Number(mm[2]);
+    const o = orders.get(id);
+    if (!o) return api('sendMessage', { chat_id: m.chat.id, text: 'Заказ не найден (мог быть перезапуск сервера).' });
+    orders.setPay(id, 'wait', amount);
+    try { await requestPayment(id, o.userId, amount, 'Сумма к оплате согласована'); }
+    catch (e) { return api('sendMessage', { chat_id: m.chat.id, text: '⚠️ Клиенту не дошло: он мог остановить бота.' }); }
+    return api('sendMessage', { chat_id: m.chat.id, text: `✅ Счёт на ${rub(amount)} по заказу №${id} отправлен клиенту.` });
+  }
+
   /* ---------- Обработка обновлений ---------- */
   const COMMANDS = { '/start': 'menu', '/menu': 'menu', '/price': 'prices', '/prices': 'prices', '/portfolio': 'works', '/works': 'works',
     '/order': 'howto', '/howto': 'howto', '/faq': 'faq', '/about': 'about', '/contacts': 'contacts' };
@@ -268,6 +348,8 @@ function createBot({ env, config, appUrl, orders }) {
       const cq = up.callback_query;
       if (/^st:/.test(cq.data || '')) return onStatus(cq);
       if (/^sp:/.test(cq.data || '')) return onPlan(cq);
+      if (/^pay:/.test(cq.data || '')) return onPay(cq);
+      if (cq.data === 'noop') return api('answerCallbackQuery', { callback_query_id: cq.id }).catch(() => {});
       api('answerCallbackQuery', { callback_query_id: cq.id }).catch(() => {});
       if (cq.data === 'menu_new') return sendCard(cq.message.chat.id, 'menu', cq.from);
       if (sections[cq.data]) return showSection(cq, cq.data);
@@ -284,12 +366,14 @@ function createBot({ env, config, appUrl, orders }) {
     if (m.web_app_data) return; // данные из Mini App обрабатывает /api/order
     if (isOwner) {
       if (cmd === '/plan') return api('sendMessage', { chat_id: m.chat.id, text: PLAN_HELP, parse_mode: 'HTML' });
+      if (cmd === '/pay') return ownerPayCmd(m, text);
       const isSrtDoc = m.document && (/\.srt$/i.test(m.document.file_name || '') || /subrip/i.test(m.document.mime_type || ''));
       if (!m.reply_to_message && (isSrtDoc || montage.looksLikeSrt(text))) return onOwnerMontage(m);
       if (m.reply_to_message) return ownerReply(m);
       return api('sendMessage', { chat_id: m.chat.id, text: 'Это вы — владелец бота 🙂 Чтобы ответить клиенту, ответьте (Reply) на его пересланное сообщение.\n\n🎬 Пришлите субтитры .srt из CapCut — сделаю черновик плана ролика. Подробнее: /plan' });
     }
     if (cmd) return sendCard(m.chat.id, 'menu', m.from);
+    if (awaitingCheck.has(m.from.id)) return onCheck(m, awaitingCheck.get(m.from.id));
     return relayToOwner(m);
   }
 
@@ -333,6 +417,7 @@ function createBot({ env, config, appUrl, orders }) {
     if (owner) {
       await api('setMyCommands', { scope: { type: 'chat', chat_id: Number(owner) }, commands: [
         { command: 'plan', description: '🎬 План ролика из субтитров .srt' },
+        { command: 'pay', description: '💳 Выставить счёт: /pay НОМЕР СУММА' },
         { command: 'start', description: 'Главное меню' },
         { command: 'shop', description: 'Магазин' }
       ] }).catch(e => console.error('[bot] команды владельца:', e.message));
@@ -341,7 +426,7 @@ function createBot({ env, config, appUrl, orders }) {
     console.log('[bot] команды и кнопка «Магазин» настроены');
   }
 
-  return { WEBHOOK_PATH, handleWebhook, setup, onUpdate, statusKb, _secret: SECRET };
+  return { WEBHOOK_PATH, handleWebhook, setup, onUpdate, statusKb, requestPayment, _secret: SECRET };
 }
 
 module.exports = { createBot };

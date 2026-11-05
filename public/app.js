@@ -751,7 +751,9 @@
         el('div', { class: 'o-top' }, [el('span', { class: 'o-id', text: '№' + o.id }), el('span', { class: 'o-st ' + st.c, text: st.t })]),
         el('b', { class: 'o-title', text: title }),
         el('div', { class: 'o-sub' }, [el('span', { text: fmtDate(o.at) }), sb ? el('span', { text: subPrice(sb.planId, sb.level) }) : s ? el('span', { text: formatPrice(s) }) : null]),
-        o.status === 'cancel' ? null : steps
+        o.status === 'cancel' ? null : steps,
+        // оплата по реквизитам: сумма и статус
+        o.pay && o.status !== 'cancel' ? el('div', { class: 'o-sub', style: 'margin-top:8px' }, [el('span', { text: o.pay === 'paid' ? '💳 Оплачено' : o.pay === 'check' ? '💳 Чек на проверке' : '💳 Ожидает оплаты' }), o.amount ? el('span', { text: num(o.amount) + ' ' + (cfg.currency || '₽') }) : null]) : null
       ]));
     });
     updateOrderBadge(); observe($('#screen-profile'));
@@ -776,8 +778,8 @@
           storePlan(j.plan || null); showPlan(j.plan || null);
           var byId = {}; orders.forEach(function (o) { byId[o.id] = o; });
           j.orders.forEach(function (so) {
-            if (byId[so.id]) byId[so.id].status = so.status;
-            else orders.push({ id: so.id, serviceId: so.serviceId, at: so.at, status: so.status });
+            if (byId[so.id]) { byId[so.id].status = so.status; byId[so.id].pay = so.pay || null; byId[so.id].amount = so.amount || null; }
+            else orders.push({ id: so.id, serviceId: so.serviceId, at: so.at, status: so.status, pay: so.pay || null, amount: so.amount || null });
           });
           orders.sort(function (a, b) { return b.at - a.at; });
           persistOrders(); drawOrders();

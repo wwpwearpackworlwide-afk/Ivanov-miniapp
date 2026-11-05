@@ -29,6 +29,8 @@ const PUBLIC_DIR = path.join(ROOT, 'public');
 const env = {
   BOT_TOKEN: process.env.BOT_TOKEN || '',
   OWNER_CHAT_ID: process.env.OWNER_CHAT_ID || '',
+  // Реквизиты для оплаты (СБП/карта) — задаются только в настройках Render, в код и чат не попадают. \n = перенос строки
+  PAY_DETAILS: (process.env.PAY_DETAILS || '').replace(/\\n/g, '\n').trim(),
   PORT: Number(process.env.PORT) || 3000,
   ALLOW_BROWSER_ORDERS: process.env.ALLOW_BROWSER_ORDERS === 'true',
   INITDATA_MAX_AGE: Number(process.env.INITDATA_MAX_AGE) || 86400,
@@ -80,6 +82,12 @@ const orders = (function () {
       if (!o || !/^sub:/.test(o.serviceId || '')) return null;
       o.planUntil = until; o.updatedAt = Date.now(); map.set(id, o); save(); return o;
     },
+    // Оплата по реквизитам: wait → check (клиент прислал чек) → paid; подтверждает владелец кнопкой
+    setPay(id, pay, amount) {
+      const o = map.get(id);
+      if (!o) return null;
+      o.pay = pay; if (amount) o.amount = amount; o.updatedAt = Date.now(); map.set(id, o); save(); return o;
+    },
     activePlan(userId) {
       const now = Date.now();
       const act = [...map.values()].filter(o => o.userId === userId && o.planUntil > now).sort((a, b) => b.planUntil - a.planUntil)[0];
@@ -108,6 +116,13 @@ function subPrice(sub) {
   if (!p || !p.price) return '';
   const v = p.price[sub.level];
   return typeof v === 'number' ? v.toLocaleString('ru-RU') + ' ' + config.currency + '/' + (SUBS.period || 'мес') : 'цена по запросу';
+}
+
+/* Сумма к оплате: только для фиксированной цены (без «от» и без доп. услуг) — иначе сумму называет Иван (/pay) */
+function orderAmount(o) {
+  if (o.subscription) { const p = PLANS.get(o.subscription.planId); const v = p && p.price && p.price[o.subscription.level]; return typeof v === 'number' ? v : null; }
+  const s = SERVICES.get(o.serviceId);
+  return s && !s.from && typeof s.price === 'number' && !o.extras.length ? s.price : null;
 }
 
 /* ---------- Проверка initData по официальному алгоритму Telegram ----------
@@ -328,9 +343,10 @@ async function handleOrder(req, res) {
   if (prev) return json(res, 200, { ok: true, orderId: prev.orderId, duplicate: true }, cors);
 
   const orderId = Date.now().toString(36).toUpperCase().slice(-5) + crypto.randomBytes(2).toString('hex').toUpperCase();
+  const amount = orderAmount(o);
   try {
     // Кнопки статуса — только для заявок с подтверждённым Telegram-аккаунтом (есть кому сообщить)
-    const extra = verified ? { reply_markup: statusKeyboard(orderId, verified.user.id, 'sent', !!o.subscription) } : undefined;
+    const extra = verified ? { reply_markup: statusKeyboard(orderId, verified.user.id, 'sent', !!o.subscription, amount && env.PAY_DETAILS ? 'wait' : null) } : undefined;
     await tgSend(env.OWNER_CHAT_ID, orderMessage(orderId, o, verified && verified.user), extra);
   } catch (e) {
     console.error('[order] не удалось отправить владельцу:', e.message.replace(env.BOT_TOKEN, '***'));
@@ -338,11 +354,14 @@ async function handleOrder(req, res) {
   }
   done.set(idemKey, { orderId, at: Date.now() });
   const storedId = o.subscription ? `sub:${o.subscription.planId}:${o.subscription.level}` : o.serviceId;
-  if (verified) orders.add({ id: orderId, userId: verified.user.id, serviceId: storedId, at: Date.now(), status: 'sent' });
+  const payFlow = !!(verified && amount && env.PAY_DETAILS && bot);
+  if (verified) orders.add({ id: orderId, userId: verified.user.id, serviceId: storedId, at: Date.now(), status: 'sent', ...(amount ? { amount } : {}), ...(payFlow ? { pay: 'wait' } : {}) });
   console.log(`[order] ${orderId} отправлена владельцу (${verified ? 'tg ' + verified.user.id : 'browser'})`);
 
   // Подтверждение клиенту — по желанию, не влияет на результат (бот может писать, только если клиент запускал бота)
-  if (verified) {
+  if (payFlow) {
+    bot.requestPayment(orderId, verified.user.id, amount, o.subscription ? subLabel(o.subscription) : SERVICES.get(o.serviceId).title).catch(() => {});
+  } else if (verified) {
     tgSend(verified.user.id, `✅ Заявка №${orderId} получена. Я отвечу вам в личных сообщениях.\n\n${o.subscription ? esc(subLabel(o.subscription)) + ' — ' + esc(subPrice(o.subscription)) : 'Услуга: ' + esc(SERVICES.get(o.serviceId).title)}`)
       .catch(() => {});
   }
@@ -350,10 +369,11 @@ async function handleOrder(req, res) {
 }
 
 /* Кнопки под заявкой у владельца: callback_data = st:<статус>:<номер>:<id клиента> (до 64 байт) */
-function statusKeyboard(orderId, userId, current, isSub) {
+function statusKeyboard(orderId, userId, current, isSub, pay) {
   const b = (st, text) => ({ text: (current === st ? '• ' : '') + text, callback_data: `st:${st}:${orderId}:${userId}` });
   const rows = [[b('work', '🛠 В работу'), b('done', '✅ Готово')], [b('cancel', '✖ Отменить')]];
-  if (isSub) rows.push([{ text: '💳 Оплачено — включить план', callback_data: `sp:on:${orderId}:${userId}` }]);
+  if (pay && pay !== 'paid') rows.push([{ text: '💳 Оплата пришла', callback_data: `pay:ok:${orderId}:${userId}` }]);
+  else if (isSub) rows.push([{ text: '💳 Оплачено — включить план', callback_data: `sp:on:${orderId}:${userId}` }]);
   return { inline_keyboard: rows };
 }
 
@@ -367,7 +387,7 @@ async function handleMyOrders(req, res) {
   const v = body && verifyInitData(body.initData, env.BOT_TOKEN, env.INITDATA_MAX_AGE);
   if (!v) return json(res, 401, { ok: false, error: 'invalid_init_data' });
   if (rateLimited('my:' + v.user.id, 40)) return json(res, 429, { ok: false, error: 'rate_limited' }, { 'Retry-After': '600' });
-  const list = orders.ofUser(v.user.id).map(o => ({ id: o.id, serviceId: o.serviceId, at: o.at, status: o.status }));
+  const list = orders.ofUser(v.user.id).map(o => ({ id: o.id, serviceId: o.serviceId, at: o.at, status: o.status, pay: o.pay || null, amount: o.amount || null }));
   const plan = orders.activePlan(v.user.id);
   return json(res, 200, { ok: true, orders: list, plan });
 }
