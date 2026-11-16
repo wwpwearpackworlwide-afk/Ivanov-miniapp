@@ -397,6 +397,16 @@ button.avatar:active{transform:scale(.92)}
 .o-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px}
 .o-steps i{height:6px;border-radius:3px;background:rgba(255,255,255,.1)}
 .o-steps i.on{background:linear-gradient(90deg,var(--blue),var(--sky))}
+.o-composition{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+.o-caption{display:block;font-size:12px;font-weight:700;color:var(--steel);margin-bottom:6px}
+.o-items{list-style:none;padding:0;margin:0;display:grid;gap:4px}
+.o-items li{font-size:13px;line-height:1.45;color:var(--chalk);overflow-wrap:anywhere}
+.o-items li::before{content:'·';color:var(--sky);margin-right:7px}
+.o-details{display:grid;gap:6px;margin-top:12px}
+.o-line{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;font-size:12.5px;line-height:1.4}
+.o-line span{color:var(--steel)}
+.o-line b{text-align:right;font-weight:700;overflow-wrap:anywhere}
+.o-paid-at b{color:#C9D7FF}
 .p-empty{border-radius:22px;padding:18px 16px;margin-top:10px;text-align:center}
 .p-empty b{display:block;font-size:16px}
 .p-empty small{display:block;font-size:13px;color:var(--steel);margin-top:6px;line-height:1.45}
