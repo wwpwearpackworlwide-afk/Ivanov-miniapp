@@ -1,13 +1,23 @@
 {
   "name": "ivanov-miniapp",
-  "version": "1.0.0",
+  "version": "2.0.0-alpha.1",
   "private": true,
-  "description": "Telegram Mini App для IvanovServiceBot: каталог услуг монтажа и приём заявок",
+  "description": "Telegram Mini App и модульный backend: заказы, ручная оплата, аудит и восстановление",
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
-    "test": "node tests/api.test.js && node tests/bot.test.js && node tests/pay.test.js"
+    "check": "node scripts/check.js",
+    "scan:secrets": "node scripts/secret-scan.js",
+    "test": "node tests/store.test.js && node tests/api.test.js && node tests/bot.test.js && node tests/pay.test.js && node tests/payment-v2.test.js",
+    "test:legacy": "node tests/api.test.js && node tests/bot.test.js && node tests/pay.test.js && node tests/ui.test.js",
+    "test:ui": "node tests/ui.test.js",
+    "test:all": "npm test && npm run test:ui"
   },
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": "24.x"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
+  },
   "license": "UNLICENSED"
 }
