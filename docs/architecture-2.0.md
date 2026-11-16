@@ -1,104 +1,123 @@
-# Архитектура 2.0
+# Архитектура 2.0: модульный монолит и ERD
 
-Цель: **модульный монолит**, без микросервисов и переписывания ради технологий. Текущий Vanilla frontend и Node.js API сохраняются до поэтапного переноса.
+## Принципы
+
+Целевая система — один deployable backend с модулями `catalog`, `orders`, `payments`, `subscriptions`, `files`, `telegram`, `crm`, `audit`. Микросервисы не нужны: финансовые операции требуют локальных транзакций PostgreSQL, а команде важны простые deploy и rollback.
+
+Текущая реализация остаётся работающей во время миграции. React + TypeScript + Vite, Fastify + TypeScript, PostgreSQL, S3/R2 и CDN вводятся по этапам, а не одной переписью. Существующие логотип, портфолио, стиль и цены сохраняются.
+
+Денежные значения в PostgreSQL — `BIGINT` в минорных единицах (`amount_minor`) плюс ISO currency. Время — `TIMESTAMPTZ`. Любое финансовое решение идемпотентно и имеет actor/reason/time.
 
 ## ERD
 
 ```mermaid
 erDiagram
-  customers ||--o{ orders : places
-  customers ||--o{ subscriptions : owns
-  services ||--o{ service_options : has
-  services ||--o{ price_versions : versions
-  orders ||--o{ order_items : contains
-  orders ||--o{ order_status_events : tracks
-  orders ||--o{ payments : has
-  payments ||--o{ payment_events : tracks
-  subscriptions ||--o{ subscription_periods : periods
-  subscriptions ||--o{ subscription_usage : usage
-  files ||--o{ payment_events : receipt
-  customers ||--o{ audit_logs : actor
-  orders ||--o{ audit_logs : subject
+  CUSTOMERS ||--o{ ORDERS : places
+  CUSTOMERS ||--o{ SUBSCRIPTIONS : owns
+  CUSTOMERS ||--o{ FILES : uploads
+  SERVICES ||--o{ SERVICE_OPTIONS : offers
+  SERVICES ||--o{ PRICE_VERSIONS : prices
+  SERVICE_OPTIONS ||--o{ PRICE_VERSIONS : prices
+  ORDERS ||--o{ ORDER_ITEMS : snapshots
+  SERVICES ||--o{ ORDER_ITEMS : references
+  SERVICE_OPTIONS ||--o{ ORDER_ITEMS : references
+  PRICE_VERSIONS ||--o{ ORDER_ITEMS : fixes
+  ORDERS ||--o{ ORDER_STATUS_EVENTS : history
+  ORDERS ||--o{ PAYMENTS : billing
+  PAYMENTS ||--o{ PAYMENT_EVENTS : history
+  FILES ||--o{ PAYMENT_EVENTS : evidence
+  SUBSCRIPTIONS ||--o{ SUBSCRIPTION_PERIODS : periods
+  SUBSCRIPTION_PERIODS ||--o{ SUBSCRIPTION_USAGE : consumes
+  ORDERS ||--o{ FILES : attaches
+  ORDERS ||--o{ OUTBOX_EVENTS : emits
+  CUSTOMERS ||--o{ AUDIT_LOGS : subject
 ```
 
-### 1. `customers`
+## Сущности и ключевые поля
 
-`id UUID PK`, `telegram_user_id BIGINT UNIQUE NOT NULL`, `username`, `display_name`, `locale VARCHAR(8) DEFAULT 'ru'`, `created_at`, `updated_at`. Telegram username не используется для авторизации; источник идентичности — проверенный numeric ID.
+### customers
 
-### 2. `services`
+- `id UUID PK`, `telegram_user_id BIGINT UNIQUE NOT NULL`.
+- `username`, `display_name`, `locale VARCHAR(8)`, `timezone`.
+- `created_at`, `updated_at`, `deleted_at` — soft delete для сохранения финансовых связей.
 
-`id UUID PK`, `code VARCHAR UNIQUE`, `kind`, `active BOOLEAN`, `sort_order INTEGER`. Названия локализуемы; заказ хранит собственный snapshot.
+### services / service_options
 
-### 3. `service_options`
+- `services`: `id UUID PK`, `code UNIQUE`, `category`, `active`, `name_ru`, `name_en`, `created_at`.
+- `service_options`: `id`, `service_id FK`, `code`, `option_type`, `name_ru`, `name_en`, `parameters JSONB`.
+- Названия в справочнике можно менять; старые заказы от этого не зависят.
 
-`id UUID PK`, `service_id FK`, `code`, `option_type`, `payload JSONB`, `active`. Параметры длительности, уровня и дополнительных услуг.
+### price_versions
 
-### 4. `price_versions`
+- `id UUID PK`, `service_id NULL FK`, `service_option_id NULL FK`, ровно один владелец цены.
+- `amount_minor BIGINT NULL`, `currency CHAR(3)`, `from_price BOOLEAN`, `valid_from`, `valid_to`.
+- Версия иммутабельна после публикации. Новый прайс — новая строка, не `UPDATE` прошлой версии.
 
-`id UUID PK`, `service_id FK`, `option_id NULL FK`, `currency CHAR(3)`, `amount_minor BIGINT NULL`, `price_mode fixed/from/individual`, `valid_from`, `valid_to`, `created_at`. Старые версии не изменяются после использования.
+### orders
 
-### 5. `orders`
+- `id UUID PK`, `public_number VARCHAR(16) UNIQUE`, `customer_id FK`.
+- `state`, `payment_status`, `work_status`, `total_minor`, `currency`.
+- `idempotency_key`, `created_at`, `paid_at`, `updated_at`, `source_channel`.
+- `UNIQUE(customer_id, idempotency_key)` предотвращает дубли при retry/restart.
+- `state` включает `pending_payment`, `payment_submitted`, `payment_review`, `payment_rejected`, `paid`, `in_progress`, `completed`, `cancelled`.
 
-`id UUID PK`, `public_number VARCHAR UNIQUE`, `customer_id FK`, `state`, `payment_status`, `work_status`, `amount_minor NULL`, `currency`, `idempotency_key`, `payment_confirmed_at`, `created_at`, `updated_at`, `version INTEGER`. Уникальность `(customer_id, idempotency_key)`.
+### order_items
 
-### 6. `order_items`
+- `id`, `order_id FK`, `service_id NULL FK`, `service_option_id NULL FK`, `price_version_id NULL FK`.
+- `title_snapshot`, `parameters_snapshot JSONB`, `quantity`, `unit_amount_minor`, `total_amount_minor`, `currency`.
+- Снимок включает название, длительность/объём, срок, extras и цену на момент создания. Изменение прайса не трогает эти строки.
 
-`id UUID PK`, `order_id FK`, `service_id NULL FK`, `price_version_id NULL FK`, `service_snapshot JSONB`, `options_snapshot JSONB`, `quantity INTEGER CHECK >0`, `amount_minor NULL`, `currency`. Snapshot неизменяем при последующем изменении прайса.
+### order_status_events
 
-### 7. `order_status_events`
+- `id BIGSERIAL PK`, `order_id FK`, `from_state`, `to_state`, `actor_type`, `actor_id`, `reason`, `created_at`.
+- Append-only: запрещены UPDATE/DELETE на уровне привилегий БД.
 
-`id BIGSERIAL PK`, `order_id FK`, `from_state`, `to_state`, `actor_type`, `actor_id`, `reason`, `metadata JSONB`, `created_at`. Append-only; UPDATE/DELETE запрещены приложению.
+### payments / payment_events
 
-### 8. `payments`
+- `payments`: `id`, `order_id FK`, `kind='manual_bank_transfer'`, `status`, `amount_minor`, `currency`, `confirmed_by`, `confirmed_at`, `created_at`.
+- `payment_events`: `id`, `payment_id FK`, `event_type`, `from_status`, `to_status`, `actor_type`, `actor_id`, `reason`, `receipt_file_id NULL FK`, `created_at`.
+- Скриншот создаёт только review-событие. `paid` возникает исключительно после авторизованного решения владельца.
+- Уникальный ключ идемпотентности действия: `(payment_id, event_type, client_action_id)`.
 
-`id UUID PK`, `order_id FK`, `kind manual`, `status`, `amount_minor`, `currency`, `confirmed_by`, `confirmed_at`, `created_at`. Нет card data или эквайринговых credentials.
+### subscriptions / subscription_periods / subscription_usage
 
-### 9. `payment_events`
+- `subscriptions`: `id`, `customer_id`, `plan_code`, `level_code`, `status`, `current_period_id`.
+- `subscription_periods`: `id`, `subscription_id`, `order_id NULL`, `starts_at`, `ends_at`, `included_units`.
+- `subscription_usage`: `id`, `period_id`, `order_item_id NULL`, `units`, `created_at`.
+- Продление создаёт/продлевает период идемпотентно; повтор callback не добавляет 30 дней повторно.
 
-`id BIGSERIAL PK`, `payment_id FK`, `file_id NULL FK`, `from_status`, `to_status`, `actor_type`, `actor_id`, `reason`, `metadata JSONB`, `created_at`. Отправка, review, reject, repeat request и подтверждение не перезаписывают друг друга.
+### files
 
-### 10. `subscriptions`
+- `id UUID PK`, `customer_id`, `order_id NULL`, `purpose`, `storage_provider`, `storage_key`.
+- `telegram_file_unique_id`, зашифрованный/ограниченный `telegram_file_id`, `mime_type`, `size_bytes`, `sha256`, `created_at`.
+- Файл приватный. Доступ проверяется по заказу/владельцу; публичный CDN используется только для портфолио, не для чеков.
 
-`id UUID PK`, `customer_id FK`, `plan_code`, `level_code`, `status`, `current_period_id NULL`, `created_at`, `updated_at`.
+### telegram_updates
 
-### 11. `subscription_periods`
+- `update_id BIGINT`, `payload_hash`, `payload JSONB`, `status`, `attempts`, `next_attempt_at`, `received_at`, `processed_at`, `last_error`.
+- В production `PRIMARY KEY(update_id)`; текущий JSON дополнительно использует payload hash для совместимости со старыми тестовыми update_id.
+- Запись вставляется до ACK. Обработчик at-least-once, бизнес-операции идемпотентны.
 
-`id UUID PK`, `subscription_id FK`, `order_id NULL FK`, `starts_at`, `ends_at`, `included_units INTEGER`, `status`. Продление создаёт/продлевает период явной операцией.
+### outbox_events
 
-### 12. `subscription_usage`
+- `id UUID`, `aggregate_type`, `aggregate_id`, `event_type`, `payload JSONB`, `idempotency_key UNIQUE`.
+- `status`, `attempts`, `available_at`, `sent_at`, `last_error`.
+- В PostgreSQL создаётся в одной транзакции с финансовым событием. Relay не удаляет запись после отправки.
 
-`id BIGSERIAL PK`, `subscription_id FK`, `period_id FK`, `order_id NULL FK`, `units INTEGER`, `reason`, `created_at`; уникальный external key для идемпотентного списания.
+### audit_logs
 
-### 13. `files`
+- `id BIGSERIAL`, `actor_type`, `actor_id`, `entity_type`, `entity_id`, `action`, `reason`, `metadata JSONB`, `created_at`.
+- Доступ только сервисной роли на INSERT/SELECT. Не хранить токены, реквизиты и содержимое чека.
 
-`id UUID PK`, `owner_customer_id NULL FK`, `storage_provider telegram/s3`, `storage_key`, `telegram_file_id`, `telegram_file_unique_id`, `mime_type`, `size_bytes`, `sha256`, `message_id`, `chat_id`, `created_at`. Bucket приватный; публичного URL нет.
+## Транзакции
 
-### 14. `telegram_updates`
+`confirm payment` в PostgreSQL:
 
-`update_id BIGINT PK`, `payload_hash`, `payload JSONB NULL`, `status pending/processing/done/failed`, `attempts`, `next_attempt_at`, `received_at`, `processed_at`, `last_error`. ACK только после INSERT; обработка at-least-once.
+1. `SELECT ... FOR UPDATE` платежа и заказа.
+2. Проверить owner, customer binding и допустимый текущий статус.
+3. INSERT append-only payment/status/audit events.
+4. UPDATE заказа и платежа.
+5. INSERT outbox с уникальным ключом.
+6. COMMIT; только затем ACK обработчика как выполненного.
 
-### 15. `outbox_events`
-
-`id UUID PK`, `aggregate_type`, `aggregate_id`, `event_type`, `payload JSONB`, `status pending/sent/failed`, `attempts`, `next_attempt_at`, `created_at`, `sent_at`, `last_error`. Финансовый переход и outbox пишутся одной SQL transaction.
-
-### 16. `audit_logs`
-
-`id BIGSERIAL PK`, `actor_type`, `actor_id`, `action`, `subject_type`, `subject_id`, `reason`, `metadata JSONB`, `created_at`. Append-only; чувствительные реквизиты и содержимое чеков не логируются.
-
-## Модули монолита
-
-`catalog`, `orders`, `payments`, `subscriptions`, `files`, `telegram-inbox`, `outbox-relay`, `crm`, `i18n`. Между модулями — вызовы интерфейсов, общая PostgreSQL transaction там, где нужна атомарность.
-
-## Целевой стек
-
-React + TypeScript + Vite, RU/EN; Node.js LTS + TypeScript + Fastify; REST; PostgreSQL + миграции; приватный S3/R2 и CDN только для публичных assets. Внедрение поэтапное, без big bang.
-
-## Инварианты
-
-- Цена определяется сервером и фиксируется snapshot.
-- Нет автоматического `paid` по screenshot.
-- Owner action проверяет actor, order, customer и текущий state.
-- Повторная финансовая операция идемпотентна.
-- История статусов и чеков append-only.
-- Webhook ACK только после durable save.
-- Уведомление не отменяет уже сохранённое финансовое решение.
+Это устраняет текущее ограничение JSON «один активный инстанс» и окно между несколькими файловыми записями.
