@@ -1,14 +1,15 @@
 'use strict';
-/* IvanovService Mini App — сервер без внешних зависимостей (только Node.js 18+).
-   1) раздаёт папку public/
-   2) принимает заявки POST /api/order, проверяет подпись Telegram initData,
-      валидирует данные, ограничивает частоту и отправляет заявку владельцу через Bot API.
-   Токен бота берётся ТОЛЬКО из переменной окружения BOT_TOKEN и никогда не уходит в браузер. */
+/* IvanovService Mini App — модульный Node.js backend без внешних runtime-зависимостей.
+   Node.js 24 LTS рекомендован; заявки проверяются по Telegram initData, сумма рассчитывается
+   только на сервере, финансовые события и Telegram inbox сохраняются до ACK. */
 
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { openStore } = require('./store');
+const { loadConfig, validateEnv } = require('./config-schema');
+const { publicOrder, normalizeOrder } = require('./order-state');
 
 const ROOT = path.resolve(__dirname, '..');
 const PUBLIC_DIR = path.join(ROOT, 'public');
@@ -26,79 +27,21 @@ const PUBLIC_DIR = path.join(ROOT, 'public');
   }
 })();
 
-const env = {
-  BOT_TOKEN: process.env.BOT_TOKEN || '',
-  OWNER_CHAT_ID: process.env.OWNER_CHAT_ID || '',
-  // Реквизиты для оплаты (СБП/карта) — задаются только в настройках Render, в код и чат не попадают. \n = перенос строки
-  PAY_DETAILS: (process.env.PAY_DETAILS || '').replace(/\\n/g, '\n').trim(),
-  PORT: Number(process.env.PORT) || 3000,
-  ALLOW_BROWSER_ORDERS: process.env.ALLOW_BROWSER_ORDERS === 'true',
-  INITDATA_MAX_AGE: Number(process.env.INITDATA_MAX_AGE) || 86400,
-  TELEGRAM_API_BASE: (process.env.TELEGRAM_API_BASE || 'https://api.telegram.org').replace(/\/$/, ''),
-  ALLOWED_ORIGIN: process.env.ALLOWED_ORIGIN || '',
-  TRUST_PROXY: process.env.TRUST_PROXY !== 'false'
-};
-
-const config = JSON.parse(fs.readFileSync(path.join(PUBLIC_DIR, 'config.json'), 'utf8'));
+const env = validateEnv(process.env);
+const config = loadConfig(path.join(PUBLIC_DIR, 'config.json'));
 
 /* Бот (команды, меню, пересылка сообщений). Включается, если известен публичный адрес:
    на Render он есть автоматически в RENDER_EXTERNAL_URL, иначе задайте APP_URL. */
 const APP_URL = (process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
 
-/* ---------- Заказы и их статусы ----------
-   Храним в памяти и в data/orders.json. На бесплатном Render диск временный: после перезапуска
-   файл может пропасть — поэтому список заказов клиента дублируется у него в облаке Telegram (CloudStorage),
-   а о каждой смене статуса клиент получает сообщение от бота. */
-const DATA_FILE = process.env.ORDERS_FILE || path.join(ROOT, 'data', 'orders.json');
-const STATUSES = new Set(['sent', 'work', 'done', 'cancel']);
-const orders = (function () {
-  const map = new Map();
-  try { for (const o of JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'))) if (o && o.id) map.set(o.id, o); } catch { /* файла ещё нет */ }
-  let timer = null;
-  const save = () => {
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-      try {
-        fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
-        const all = [...map.values()].sort((a, b) => b.at - a.at).slice(0, 5000);
-        fs.writeFileSync(DATA_FILE, JSON.stringify(all));
-      } catch (e) { console.error('[orders] не удалось сохранить:', e.message); }
-    }, 300);
-    if (timer.unref) timer.unref();
-  };
-  return {
-    add(o) { map.set(o.id, o); save(); },
-    get(id) { return map.get(id) || null; },
-    setStatus(id, status, userId) {
-      if (!STATUSES.has(status)) return null;
-      let o = map.get(id);
-      if (!o) { if (!userId) return null; o = { id, userId: Number(userId), serviceId: null, at: Date.now() }; }
-      o.status = status; o.updatedAt = Date.now(); map.set(id, o); save(); return o;
-    },
-    ofUser(userId) { return [...map.values()].filter(o => o.userId === userId).sort((a, b) => b.at - a.at).slice(0, 25); },
-    // План подписки включает владелец кнопкой «Оплачено» под заявкой: до этого момента план не активен
-    setPlan(id, until) {
-      const o = map.get(id);
-      if (!o || !/^sub:/.test(o.serviceId || '')) return null;
-      o.planUntil = until; o.updatedAt = Date.now(); map.set(id, o); save(); return o;
-    },
-    // Оплата по реквизитам: wait → check (клиент прислал чек) → paid; подтверждает владелец кнопкой
-    setPay(id, pay, amount) {
-      const o = map.get(id);
-      if (!o) return null;
-      o.pay = pay; if (amount) o.amount = amount; o.updatedAt = Date.now(); map.set(id, o); save(); return o;
-    },
-    activePlan(userId) {
-      const now = Date.now();
-      const act = [...map.values()].filter(o => o.userId === userId && o.planUntil > now).sort((a, b) => b.planUntil - a.planUntil)[0];
-      if (!act) return null;
-      const [, planId, level] = act.serviceId.split(':');
-      return { planId, level, until: act.planUntil, orderId: act.id };
-    }
-  };
-})();
+/* ---------- Версионированное JSON-хранилище ----------
+   Запись atomic (temp + fsync + rename), предыдущая валидная копия — в .bak.
+   Старый массив orders.json импортируется без удаления записей. Один активный инстанс. */
+const LEGACY_DATA_FILE = path.join(ROOT, 'data', 'orders.json');
+const DATA_FILE = process.env.ORDERS_FILE || path.join(ROOT, 'data', 'runtime', 'orders.json');
+const orders = openStore({ file: DATA_FILE, legacyFile: process.env.ORDERS_FILE ? null : LEGACY_DATA_FILE });
 
-const bot = (env.BOT_TOKEN && env.OWNER_CHAT_ID && APP_URL && process.env.ENABLE_BOT !== 'false')
+const bot = (env.BOT_TOKEN && env.OWNER_CHAT_ID && APP_URL && env.ENABLE_BOT)
   ? require('./bot').createBot({ env, config, appUrl: APP_URL, orders }) : null;
 const SERVICES = new Map(config.services.map(s => [s.id, s]));
 const EXTRAS = new Map(config.extras.map(x => [x.id, x]));
@@ -156,15 +99,16 @@ const hits = new Map();
 function rateLimited(key, limit) {
   const now = Date.now();
   const arr = (hits.get(key) || []).filter(t => now - t < WINDOW_MS);
+  if (!hits.has(key) && hits.size >= 10000) {
+    for (const [k, values] of hits) if (!values.some(t => now - t < WINDOW_MS)) hits.delete(k);
+    if (hits.size >= 10000) return true; // fail closed, без неограниченного роста Map
+  }
   if (arr.length >= limit) { hits.set(key, arr); return true; }
   arr.push(now); hits.set(key, arr); return false;
 }
-// Повторная отправка с тем же ключом не создаёт вторую заявку
-const done = new Map(); // idempotencyKey -> { orderId, at }
 setInterval(() => {
   const now = Date.now();
   for (const [k, v] of hits) if (!v.some(t => now - t < WINDOW_MS)) hits.delete(k);
-  for (const [k, v] of done) if (now - v.at > 24 * 3600 * 1000) done.delete(k);
 }, 60 * 1000).unref();
 
 /* ---------- Валидация ---------- */
@@ -240,7 +184,7 @@ function orderMessage(id, o, user) {
   } else {
     what = [`<b>Услуга:</b> ${esc(s.title)} (${esc(s.duration)}) — ${esc(priceText(s))}`];
   }
-  const extras = o.extras.map(x => EXTRAS.get(x).title).join(', ') || 'нет';
+  const extras = o.extras.map(x => (typeof x === 'string' ? EXTRAS.get(x).title : x.title)).join(', ') || 'нет';
   let who;
   if (user) {
     const name = [user.first_name, user.last_name].filter(Boolean).join(' ');
@@ -309,6 +253,64 @@ function readBody(req, limit) {
   });
 }
 
+function makeOrderId() {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const id = Date.now().toString(36).toUpperCase().slice(-5) + crypto.randomBytes(3).toString('hex').toUpperCase();
+    if (!orders.has(id)) return id;
+  }
+  throw new Error('Не удалось выделить уникальный номер заказа');
+}
+
+function snapshotOrder(id, o, user, amount) {
+  const at = Date.now();
+  const service = SERVICES.get(o.serviceId);
+  let serviceSnapshot, item;
+  if (o.subscription) {
+    const plan = PLANS.get(o.subscription.planId), level = LEVELS.get(o.subscription.level);
+    serviceSnapshot = {
+      type: 'subscription', planId: plan.id, level: level.id,
+      title: subLabel(o.subscription), videos: plan.videos, maxSec: plan.maxSec,
+      unitPrice: amount, currency: config.currency, period: SUBS.period || 'мес'
+    };
+    item = {
+      type: 'subscription', refId: `${plan.id}:${level.id}`, title: serviceSnapshot.title,
+      parameters: { level: level.title, videos: plan.videos, maxSec: plan.maxSec, deadline: o.deadline },
+      quantity: 1, unitPrice: amount, totalPrice: amount
+    };
+  } else {
+    serviceSnapshot = {
+      type: 'service', serviceId: service.id, title: service.title, duration: service.duration,
+      listPrice: service.price, from: !!service.from, currency: config.currency
+    };
+    item = {
+      type: 'service', refId: service.id, title: service.title,
+      parameters: { duration: service.duration, deadline: o.deadline, sourceUrl: o.sourceUrl, exampleUrl: o.exampleUrl },
+      quantity: 1, unitPrice: service.price, totalPrice: amount
+    };
+  }
+  const extras = o.extras.map(extraId => {
+    const x = EXTRAS.get(extraId);
+    return { id: x.id, title: x.title, price: x.price == null ? null : x.price, currency: config.currency };
+  });
+  const items = [item, ...extras.map(x => ({ type: 'extra', refId: x.id, title: x.title, parameters: {}, quantity: 1, unitPrice: x.price, totalPrice: null }))];
+  return normalizeOrder({
+    id, userId: user.id, serviceId: o.subscription ? `sub:${o.subscription.planId}:${o.subscription.level}` : o.serviceId,
+    at, createdAt: new Date(at).toISOString(), state: 'pending_payment', amount: amount == null ? null : amount,
+    serviceIdOriginal: o.serviceId || null, subscription: o.subscription,
+    sourceUrl: o.sourceUrl, exampleUrl: o.exampleUrl, description: o.description,
+    deadline: o.deadline, contact: o.contact, extras,
+    serviceSnapshot, items,
+    pricing: { currency: config.currency, total: amount, calculatedAt: new Date(at).toISOString(), source: 'server-config-snapshot' },
+    telegramUser: { id: user.id, first_name: user.first_name || '', last_name: user.last_name || '', username: user.username || '' }
+  });
+}
+
+async function notifyOwnerAboutOrder(order) {
+  const extra = { reply_markup: statusKeyboard(order.id, order.userId, 'sent', !!order.subscription, order.amount && env.PAY_DETAILS ? 'wait' : null) };
+  await tgSend(env.OWNER_CHAT_ID, orderMessage(order.id, order, order.telegramUser), extra);
+  orders.update(order.id, draft => { draft.ownerNotifiedAt = new Date().toISOString(); return draft; });
+}
+
 async function handleOrder(req, res) {
   const cors = corsHeaders(req);
   if (!/^application\/json\b/i.test(req.headers['content-type'] || '')) return json(res, 415, { ok: false, error: 'validation_error', message: 'Ожидается JSON.' }, cors);
@@ -325,7 +327,6 @@ async function handleOrder(req, res) {
   }
   if (!body || typeof body !== 'object' || Array.isArray(body)) return json(res, 400, { ok: false, error: 'validation_error' }, cors);
 
-  // Подпись Telegram: без неё данные пользователя не считаем достоверными
   let verified = null;
   if (body.initData) {
     verified = verifyInitData(body.initData, env.BOT_TOKEN, env.INITDATA_MAX_AGE);
@@ -339,29 +340,44 @@ async function handleOrder(req, res) {
   if (Object.keys(fields).length) return json(res, 400, { ok: false, error: 'validation_error', fields }, cors);
 
   const idemKey = (verified ? verified.user.id : 'ip:' + ip) + ':' + o.idempotencyKey;
-  const prev = done.get(idemKey);
-  if (prev) return json(res, 200, { ok: true, orderId: prev.orderId, duplicate: true }, cors);
-
-  const orderId = Date.now().toString(36).toUpperCase().slice(-5) + crypto.randomBytes(2).toString('hex').toUpperCase();
-  const amount = orderAmount(o);
-  try {
-    // Кнопки статуса — только для заявок с подтверждённым Telegram-аккаунтом (есть кому сообщить)
-    const extra = verified ? { reply_markup: statusKeyboard(orderId, verified.user.id, 'sent', !!o.subscription, amount && env.PAY_DETAILS ? 'wait' : null) } : undefined;
-    await tgSend(env.OWNER_CHAT_ID, orderMessage(orderId, o, verified && verified.user), extra);
-  } catch (e) {
-    console.error('[order] не удалось отправить владельцу:', e.message.replace(env.BOT_TOKEN, '***'));
-    return json(res, 502, { ok: false, error: 'telegram_error' }, cors);
+  const previous = orders.getIdempotency(idemKey);
+  if (previous) {
+    const existing = orders.get(previous.orderId);
+    if (existing && verified && !existing.ownerNotifiedAt) {
+      try { await notifyOwnerAboutOrder(existing); }
+      catch { return json(res, 502, { ok: false, error: 'telegram_error', orderId: existing.id }, cors); }
+    }
+    return json(res, 200, { ok: true, orderId: previous.orderId, duplicate: true }, cors);
   }
-  done.set(idemKey, { orderId, at: Date.now() });
-  const storedId = o.subscription ? `sub:${o.subscription.planId}:${o.subscription.level}` : o.serviceId;
-  const payFlow = !!(verified && amount && env.PAY_DETAILS && bot);
-  if (verified) orders.add({ id: orderId, userId: verified.user.id, serviceId: storedId, at: Date.now(), status: 'sent', ...(amount ? { amount } : {}), ...(payFlow ? { pay: 'wait' } : {}) });
-  console.log(`[order] ${orderId} отправлена владельцу (${verified ? 'tg ' + verified.user.id : 'browser'})`);
 
-  // Подтверждение клиенту — по желанию, не влияет на результат (бот может писать, только если клиент запускал бота)
-  if (payFlow) {
+  // Браузерные заявки без подписанного пользователя сохраняют прежнее поведение,
+  // но не попадают в финансовый workflow Telegram-клиента.
+  if (!verified) {
+    const orderId = makeOrderId();
+    try { await tgSend(env.OWNER_CHAT_ID, orderMessage(orderId, o, null)); }
+    catch (e) {
+      console.error('[order] не удалось отправить владельцу:', e.message.replace(env.BOT_TOKEN, '***'));
+      return json(res, 502, { ok: false, error: 'telegram_error' }, cors);
+    }
+    return json(res, 200, { ok: true, orderId }, cors);
+  }
+
+  const orderId = makeOrderId();
+  const amount = orderAmount(o);
+  const stored = snapshotOrder(orderId, o, verified.user, amount);
+  try {
+    orders.addWithIdempotency(stored, idemKey); // заказ и ключ сохраняются одной атомарной записью
+    await notifyOwnerAboutOrder(stored);
+  } catch (e) {
+    console.error('[order] сохранение/уведомление:', e.message.replace(env.BOT_TOKEN, '***'));
+    if (orders.get(orderId)) return json(res, 502, { ok: false, error: 'telegram_error', orderId }, cors);
+    return json(res, 500, { ok: false, error: 'storage_error' }, cors);
+  }
+  console.log(`[order] ${orderId} сохранён и отправлен владельцу (tg ${verified.user.id})`);
+
+  if (amount && bot) {
     bot.requestPayment(orderId, verified.user.id, amount, o.subscription ? subLabel(o.subscription) : SERVICES.get(o.serviceId).title).catch(() => {});
-  } else if (verified) {
+  } else {
     tgSend(verified.user.id, `✅ Заявка №${orderId} получена. Я отвечу вам в личных сообщениях.\n\n${o.subscription ? esc(subLabel(o.subscription)) + ' — ' + esc(subPrice(o.subscription)) : 'Услуга: ' + esc(SERVICES.get(o.serviceId).title)}`)
       .catch(() => {});
   }
@@ -387,9 +403,31 @@ async function handleMyOrders(req, res) {
   const v = body && verifyInitData(body.initData, env.BOT_TOKEN, env.INITDATA_MAX_AGE);
   if (!v) return json(res, 401, { ok: false, error: 'invalid_init_data' });
   if (rateLimited('my:' + v.user.id, 40)) return json(res, 429, { ok: false, error: 'rate_limited' }, { 'Retry-After': '600' });
-  const list = orders.ofUser(v.user.id).map(o => ({ id: o.id, serviceId: o.serviceId, at: o.at, status: o.status, pay: o.pay || null, amount: o.amount || null }));
+  const list = orders.ofUser(v.user.id).map(publicOrder);
   const plan = orders.activePlan(v.user.id);
   return json(res, 200, { ok: true, orders: list, plan });
+}
+
+async function handleReceipt(req, res) {
+  if (!/^application\/json\b/i.test(req.headers['content-type'] || '')) return json(res, 415, { ok: false, error: 'validation_error' });
+  if (!env.BOT_TOKEN) return json(res, 503, { ok: false, error: 'not_configured' });
+  if (rateLimited('receipt-ip:' + clientIp(req), 60)) return json(res, 429, { ok: false, error: 'rate_limited' });
+  let body;
+  try { body = JSON.parse(await readBody(req, 8 * 1024)); }
+  catch (e) { return json(res, e.code === 413 ? 413 : 400, { ok: false, error: 'validation_error' }); }
+  const v = body && verifyInitData(body.initData, env.BOT_TOKEN, env.INITDATA_MAX_AGE);
+  if (!v) return json(res, 401, { ok: false, error: 'invalid_init_data' });
+  const order = orders.get(String(body.orderId || '').toUpperCase());
+  if (!order) return json(res, 404, { ok: false, error: 'not_found' });
+  const isOwner = String(v.user.id) === String(env.OWNER_CHAT_ID);
+  if (!isOwner && order.userId !== v.user.id) return json(res, 403, { ok: false, error: 'forbidden' });
+  const receipt = order.paymentAttempts.find(r => r.id === String(body.receiptId || ''));
+  if (!receipt) return json(res, 404, { ok: false, error: 'receipt_not_found' });
+  return json(res, 200, { ok: true, orderId: order.id, receipt: {
+    id: receipt.id, kind: receipt.kind, mimeType: receipt.mimeType || null,
+    fileId: receipt.fileId, fileUniqueId: receipt.fileUniqueId || null,
+    size: receipt.size || null, submittedAt: receipt.submittedAt, status: receipt.status || 'submitted'
+  } });
 }
 
 function serveStatic(req, res, urlPath) {
@@ -425,6 +463,10 @@ const server = http.createServer(async (req, res) => {
       if (req.method !== 'POST') return json(res, 405, { ok: false, error: 'method_not_allowed' }, { Allow: 'POST' });
       return await handleMyOrders(req, res);
     }
+    if (url.pathname === '/api/receipt') {
+      if (req.method !== 'POST') return json(res, 405, { ok: false, error: 'method_not_allowed' }, { Allow: 'POST' });
+      return await handleReceipt(req, res);
+    }
     if (url.pathname.startsWith('/api/')) return json(res, 404, { ok: false, error: 'not_found' });
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method not allowed', { Allow: 'GET, HEAD' });
     return serveStatic(req, res, url.pathname);
@@ -444,4 +486,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { server, verifyInitData, validateOrder, orders, statusKeyboard };
+module.exports = { server, verifyInitData, validateOrder, orders, statusKeyboard, snapshotOrder, orderAmount };

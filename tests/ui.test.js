@@ -1,10 +1,11 @@
-// Тест интерфейса в настоящем браузере (Chromium). Нужен Playwright: npm i -D playwright && npx playwright install chromium
-// Запуск: node tests/ui.test.js  — скриншоты появятся в tests/screens/
+// Тест интерфейса в настоящем браузере (Chromium). Все данные и скриншоты — во временном каталоге.
+// Запуск: node tests/ui.test.js
 const { chromium } = require('playwright');
 const http = require('http'), crypto = require('crypto'), { spawn } = require('child_process');
-const APP=require('path').resolve(__dirname,'..'), OUT=__dirname+'/screens';
+const fs = require('fs'), os = require('os'), path = require('path');
+const APP=path.resolve(__dirname,'..'), TMP=fs.mkdtempSync(path.join(os.tmpdir(),'ivanov-ui-')), OUT=process.env.UI_SCREENSHOTS_DIR||path.join(TMP,'screens');
 const cfg=require(APP+'/public/config.json');
-require('fs').mkdirSync(OUT,{recursive:true});
+fs.mkdirSync(OUT,{recursive:true});
 const TOKEN='123456:TEST_TOKEN_not_real', PORT=3921, MPORT=3922, received=[];
 const mock=http.createServer((q,s)=>{let b='';q.on('data',c=>b+=c);q.on('end',()=>{received.push(JSON.parse(b||'{}'));s.writeHead(200,{'Content-Type':'application/json'});s.end('{"ok":true,"result":{}}')})});
 function sign(user){const p=new URLSearchParams({auth_date:String(Math.floor(Date.now()/1000)),query_id:'AAE',user:JSON.stringify(user)});
@@ -19,11 +20,14 @@ const stub=(scheme)=>`window.__mb={};window.Telegram={WebApp:{initData:${JSON.st
  MainButton:{params:{},setParams(p){Object.assign(this.params,p)},show(){this.params.is_visible=true},hide(){this.params.is_visible=false},onClick(f){this.f=f},
   showProgress(){this.progress=true},hideProgress(){this.progress=false},enable(){this.params.is_active=true},disable(){this.params.is_active=false}}}};`;
 const res=[];const ok=(c,n)=>{res.push((c?'✅ ':'❌ ')+n)};
+let srv,b;
 (async()=>{
+ try {
  await new Promise(r=>mock.listen(MPORT,r));
- const srv=spawn(process.execPath,[APP+'/server/server.js'],{env:{PATH:process.env.PATH,PORT:String(PORT),BOT_TOKEN:TOKEN,OWNER_CHAT_ID:'777',TELEGRAM_API_BASE:'http://127.0.0.1:'+MPORT}});
+ srv=spawn(process.execPath,[APP+'/server/server.js'],{env:{PATH:process.env.PATH,ORDERS_FILE:path.join(TMP,'orders.json'),PORT:String(PORT),BOT_TOKEN:TOKEN,OWNER_CHAT_ID:'777',TELEGRAM_API_BASE:'http://127.0.0.1:'+MPORT}});
+ srv.stderr.on('data',d=>process.stderr.write('  [server] '+d));
  await new Promise(r=>srv.stdout.on('data',d=>String(d).includes('localhost')&&r()));
- const b=await chromium.launch(); const url='http://127.0.0.1:'+PORT+'/';
+ b=await chromium.launch(); const url='http://127.0.0.1:'+PORT+'/';
  const errors=[];
  async function newPage(mode){ // mode: 'browser' | 'dark' | 'light'
   const ctx=await b.newContext({viewport:{width:390,height:844},deviceScaleFactor:2,isMobile:true,hasTouch:true});
@@ -147,9 +151,11 @@ const res=[];const ok=(c,n)=>{res.push((c?'✅ ':'❌ ')+n)};
  ok(!(await p.isVisible('#envBadge')),'Telegram: метка «браузер» скрыта');
  ok(await p.isVisible('#screen-home') && !(await p.isVisible('#screen-login')),'Telegram: экран входа пропускается, сразу главная');
  ok((await p.textContent('#userName'))==='Иван','Telegram: приветствие по имени');
- await p.route('**/api/my-orders',r=>r.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,orders:[{id:'AB12CD',serviceId:'sub:pro:advanced',at:Date.now(),status:'work'}],plan:{planId:'pro',level:'advanced',until:Date.now()+20*86400000}})}));
+ await p.route('**/api/my-orders',r=>r.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,orders:[{id:'AB12CD',serviceId:'sub:pro:advanced',at:Date.now(),createdAt:'2026-11-01T10:00:00.000Z',status:'work',state:'in_progress',paymentStatus:'paid',workStatus:'in_progress',amount:16000,paymentConfirmedAt:'2026-11-02T10:00:00.000Z',serviceSnapshot:{title:'Подписка Рилсы PRO · Advanced 3D',listPrice:16000},items:[{title:'Рилсы PRO · Advanced 3D',totalPrice:16000,parameters:{videos:8}}],paymentAttempts:[{id:'test-receipt'}]}],plan:{planId:'pro',level:'advanced',until:Date.now()+20*86400000}})}));
  await p.evaluate(()=>{location.hash='#profile'}); await p.waitForSelector('#planCard:not([hidden])');
  ok((await p.textContent('#planCard')).includes('PRO')&&(await p.textContent('#planCard')).includes('Advanced 3D')&&(await p.textContent('#orderList')).includes('Подписка Рилсы PRO'),'план после оплаты: в профиле карточка PRO · Advanced 3D и заказ-подписка');
+ const orderText=await p.textContent('#orderList');
+ ok(orderText.includes('Состав заказа')&&orderText.includes('16 000')&&orderText.includes('Оплачено')&&orderText.includes('Оплата подтверждена')&&orderText.includes('Чеков отправлено'),'профиль 2.0: snapshot, состав, итог, оплата, выполнение, дата подтверждения и чек');
  ok((await p.textContent('#homePlan'))==='Рилсы PRO','план после оплаты: бейдж «Рилсы PRO» рядом с именем на главной');
  await p.screenshot({path:OUT+'/9-plan.png',fullPage:true});
  await p.unroute('**/api/my-orders'); await p.evaluate(()=>{location.hash='#home'}); await p.waitForTimeout(200);
@@ -193,7 +199,13 @@ const res=[];const ok=(c,n)=>{res.push((c?'✅ ':'❌ ')+n)};
  const tabH=await p.evaluate(()=>Math.min(...[...document.querySelectorAll('.tab')].map(t=>t.getBoundingClientRect().height)));
  ok(tabH>=44,'кнопки навигации ≥44px по высоте ('+tabH+'px), внизу экрана — удобно большим пальцем');
  await p.screenshot({path:OUT+'/8-320px.png'});
- await b.close(); srv.kill(); mock.close();
  ok(errors.length===0,'JS-ошибок на странице нет'+(errors.length?': '+errors.join('; '):''));
  console.log(res.join('\n')); console.log(`\n${res.filter(r=>r[0]==='✅').length}/${res.length}`);
-})().catch(e=>{console.error(e);process.exit(1)});
+ process.exitCode=res.some(r=>r[0]==='❌')?1:0;
+ } finally {
+  if(b) await b.close().catch(()=>{});
+  if(srv) await new Promise(r=>{srv.once('exit',r);srv.kill();setTimeout(r,3000).unref();});
+  if(mock.listening) await new Promise(r=>mock.close(r));
+  fs.rmSync(TMP,{recursive:true,force:true});
+ }
+})().catch(e=>{console.error(e);process.exitCode=1});

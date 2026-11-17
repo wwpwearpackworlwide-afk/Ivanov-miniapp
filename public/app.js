@@ -10,6 +10,7 @@
   var inTelegram = !!(tg && tg.initData);           // initData пустая, если страница открыта не из Telegram
   var reduceMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
   var cfg = null;
+  var tr = function (key) { return window.IvanovI18n ? window.IvanovI18n.t(key) : key; };
   var submitting = false;
   var idempotencyKey = newKey();
   var currentScreen = 'home';
@@ -294,13 +295,7 @@
   function countUp(n) {
     if (n.__counted) return; n.__counted = true;
     var to = Number(n.getAttribute('data-count')), pre = n.getAttribute('data-pre') || '', suf = ' ' + (cfg.currency || '₽');
-    n.textContent = pre + num(to) + suf; return;   // цену показываем сразу: «бегущие» цифры могут попасть на скриншот
-    var t0 = performance.now();
-    (function step(now) {
-      var p = easeOut((now - t0) / 800);
-      n.textContent = pre + num(Math.round(to * p / 10) * 10) + suf;
-      if (p < 1) requestAnimationFrame(step); else n.textContent = pre + num(to) + suf;
-    })(t0);
+    n.textContent = pre + num(to) + suf;   // цену показываем сразу: «бегущие» цифры могут попасть на скриншот
   }
 
   /* =====================================================================
@@ -335,8 +330,10 @@
     cfg.categories.forEach(function (c, i) {
       var list = servicesOf(c.id); if (!list.length) return;
       var min = list.reduce(function (m, s) { return s.price != null && s.price < m ? s.price : m; }, Infinity);
+      var hasMin = Number.isFinite(min);
       var tile = el('span', { class: 'ico-tile' + (i === 1 ? ' c-gold' : i === 2 ? ' c-sky' : '') }, [icon(c.home.icon)]);
-      var pr = el('span', { class: 'pr', text: 'от ' + num(min) + ' ₽', 'data-count': min, 'data-pre': 'от ' });
+      var pr = el('span', { class: 'pr', text: hasMin ? 'от ' + num(min) + ' ₽' : 'Индивидуально' });
+      if (hasMin) { pr.setAttribute('data-count', min); pr.setAttribute('data-pre', 'от '); }
       cl.appendChild(el('button', { class: 'row' + (i === 0 ? ' on' : ''), type: 'button', 'data-cat': c.id }, [tile,
         el('span', { class: 'rt' }, [el('b', { text: c.home.title }), el('small', { text: c.home.sub })]), pr, el('span', { class: 'chev', text: '›' })]));
     });
@@ -344,7 +341,7 @@
       var minSub = SUBS().plans.reduce(function (m, p) { return priceOk(p, 'standard') ? Math.min(m, p.price.standard) : m; }, Infinity);
       cl.appendChild(el('button', { class: 'row', type: 'button', 'data-mode-open': 'subs' }, [el('span', { class: 'ico-tile blue' }, [icon('subs')]),
         el('span', { class: 'rt' }, [el('b', { text: 'Подписки на монтаж' }), el('small', { text: 'Ролики каждый месяц' })]),
-        el('span', { class: 'pr', text: 'от ' + num(minSub) + ' ₽' }), el('span', { class: 'chev', text: '›' })]));
+        el('span', { class: 'pr', text: Number.isFinite(minSub) ? 'от ' + num(minSub) + ' ₽' : 'цена по запросу' }), el('span', { class: 'chev', text: '›' })]));
     }
 
     // работы на главной
@@ -715,8 +712,9 @@
     } catch (e) { cb(fromLocal()); }
   }
   function persistOrders() {
-    var data = JSON.stringify(orders.slice(0, 25));           // у CloudStorage лимит 4096 символов на ключ
-    while (data.length > 4000 && orders.length > 1) { orders.pop(); data = JSON.stringify(orders.slice(0, 25)); }
+    var cache = orders.slice(0, 25);                         // CloudStorage — только кэш, не основной источник
+    var data = JSON.stringify(cache);
+    while (data.length > 4000 && cache.length > 1) { cache.pop(); data = JSON.stringify(cache); }
     try { localStorage.setItem(ORDERS_KEY, data); } catch (e) {}
     var cs = cloud(); if (cs) try { cs.setItem(ORDERS_KEY, data, function () {}); } catch (e) {}
   }
@@ -732,28 +730,45 @@
     b.textContent = act; b.hidden = !act;
   }
   function fmtDate(ts) {
-    try { return new Date(ts).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }); } catch (e) { return ''; }
+    try { return new Date(ts).toLocaleDateString(window.IvanovI18n && IvanovI18n.locale === 'en' ? 'en-GB' : 'ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }); } catch (e) { return ''; }
   }
   function drawOrders() {
     var list = $('#orderList'); list.textContent = '';
     $('#pEmpty').hidden = orders.length > 0;
     $('#pTotal').textContent = orders.length;
-    $('#pActive').textContent = orders.filter(function (o) { return o.status === 'work'; }).length;
-    $('#pDone').textContent = orders.filter(function (o) { return o.status === 'done'; }).length;
+    $('#pActive').textContent = orders.filter(function (o) { return (o.workStatus || o.status) === 'in_progress' || o.status === 'work'; }).length;
+    $('#pDone').textContent = orders.filter(function (o) { return (o.workStatus || o.status) === 'completed' || o.status === 'done'; }).length;
     orders.forEach(function (o, i) {
       var s = svc(o.serviceId), st = STATUS[o.status] || STATUS.sent, sb = parseSubId(o.serviceId);
-      var title = sb ? subTitle(sb) : s ? s.title + (s.cat === 'montage' || s.cat === 'youtube' || !s.cat ? ' · ' + s.duration : '') : 'Заказ';
-      var steps = el('div', { class: 'o-steps' }, ['sent', 'work', 'done'].map(function (k, n) {
-        var order = { sent: 0, work: 1, done: 2, cancel: -1 }[o.status] || 0;
-        return el('i', { class: n <= order ? 'on' : '' });
+      var snap = o.serviceSnapshot || null;
+      var title = snap && snap.title ? snap.title : sb ? subTitle(sb) : s ? s.title + (s.cat === 'montage' || s.cat === 'youtube' || !s.cat ? ' · ' + s.duration : '') : 'Заказ';
+      if (snap && snap.duration && title.indexOf(snap.duration) < 0) title += ' · ' + snap.duration;
+      var work = o.workStatus || (o.status === 'work' ? 'in_progress' : o.status === 'done' ? 'completed' : o.status === 'cancel' ? 'cancelled' : 'not_started');
+      var steps = el('div', { class: 'o-steps', 'aria-label': tr('order.work') }, ['not_started', 'in_progress', 'completed'].map(function (k, n) {
+        var position = { not_started: 0, in_progress: 1, completed: 2, cancelled: -1 }[work];
+        return el('i', { class: n <= position ? 'on' : '' });
       }));
-      list.appendChild(el('article', { class: 'order-card glass reveal', style: '--d:' + i }, [
+      var items = Array.isArray(o.items) && o.items.length ? o.items.map(function (item) {
+        var detail = item.title || item.refId || '—';
+        if (item.parameters && item.parameters.deadline) detail += ' · ' + item.parameters.deadline;
+        return el('li', { text: detail });
+      }) : [el('li', { text: tr('order.empty') })];
+      var total = o.amount != null ? num(o.amount) + ' ' + (cfg.currency || '₽') : tr('order.notAgreed');
+      var paymentState = o.paymentStatus || o.state || (o.pay === 'check' ? 'payment_review' : o.pay === 'paid' ? 'paid' : 'pending_payment');
+      var rows = [
+        el('div', { class: 'o-line' }, [el('span', { text: tr('order.createdAt') }), el('b', { text: fmtDate(o.createdAt || o.at) })]),
+        el('div', { class: 'o-line' }, [el('span', { text: tr('order.total') }), el('b', { text: total })]),
+        el('div', { class: 'o-line' }, [el('span', { text: tr('order.payment') }), el('b', { text: tr('payment.' + paymentState) })]),
+        el('div', { class: 'o-line' }, [el('span', { text: tr('order.work') }), el('b', { text: tr('work.' + work) })])
+      ];
+      if (o.paymentConfirmedAt) rows.push(el('div', { class: 'o-line o-paid-at' }, [el('span', { text: tr('order.paidAt') }), el('b', { text: fmtDate(o.paymentConfirmedAt) })]));
+      if (o.paymentAttempts && o.paymentAttempts.length) rows.push(el('div', { class: 'o-line' }, [el('span', { text: tr('order.receipts') }), el('b', { text: String(o.paymentAttempts.length) })]));
+      list.appendChild(el('article', { class: 'order-card glass reveal', style: '--d:' + i, 'data-order-id': o.id }, [
         el('div', { class: 'o-top' }, [el('span', { class: 'o-id', text: '№' + o.id }), el('span', { class: 'o-st ' + st.c, text: st.t })]),
         el('b', { class: 'o-title', text: title }),
-        el('div', { class: 'o-sub' }, [el('span', { text: fmtDate(o.at) }), sb ? el('span', { text: subPrice(sb.planId, sb.level) }) : s ? el('span', { text: formatPrice(s) }) : null]),
-        o.status === 'cancel' ? null : steps,
-        // оплата по реквизитам: сумма и статус
-        o.pay && o.status !== 'cancel' ? el('div', { class: 'o-sub', style: 'margin-top:8px' }, [el('span', { text: o.pay === 'paid' ? '💳 Оплачено' : o.pay === 'check' ? '💳 Чек на проверке' : '💳 Ожидает оплаты' }), o.amount ? el('span', { text: num(o.amount) + ' ' + (cfg.currency || '₽') }) : null]) : null
+        work === 'cancelled' ? null : steps,
+        el('div', { class: 'o-composition' }, [el('span', { class: 'o-caption', text: tr('order.composition') }), el('ul', { class: 'o-items' }, items)]),
+        el('div', { class: 'o-details' }, rows)
       ]));
     });
     updateOrderBadge(); observe($('#screen-profile'));
@@ -778,8 +793,8 @@
           storePlan(j.plan || null); showPlan(j.plan || null);
           var byId = {}; orders.forEach(function (o) { byId[o.id] = o; });
           j.orders.forEach(function (so) {
-            if (byId[so.id]) { byId[so.id].status = so.status; byId[so.id].pay = so.pay || null; byId[so.id].amount = so.amount || null; }
-            else orders.push({ id: so.id, serviceId: so.serviceId, at: so.at, status: so.status, pay: so.pay || null, amount: so.amount || null });
+            if (byId[so.id]) Object.assign(byId[so.id], so);
+            else orders.push(so);
           });
           orders.sort(function (a, b) { return b.at - a.at; });
           persistOrders(); drawOrders();
@@ -1011,7 +1026,7 @@
       if (r.ok && r.body && r.body.ok === true && r.body.orderId) {
         haptic('success');
         successOrderId = r.body.orderId;
-        saveOrder({ id: r.body.orderId, serviceId: d.subscription ? 'sub:' + d.subscription.planId + ':' + d.subscription.level : d.serviceId, at: Date.now(), status: 'sent' });
+        saveOrder({ id: r.body.orderId, serviceId: d.subscription ? 'sub:' + d.subscription.planId + ':' + d.subscription.level : d.serviceId, at: Date.now(), status: 'sent', state: 'pending_payment', paymentStatus: 'pending_payment', workStatus: 'not_started' });
         $('#successText').textContent = 'Заявка №' + r.body.orderId + ' доставлена мне в Telegram. Я отвечу вам в личных сообщениях, обычно в течение дня.';
         $('#orderForm').reset(); $('#descCounter').textContent = '0 / 1000';
         if (inTelegram) initTelegramContact();
