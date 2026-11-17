@@ -177,9 +177,7 @@
     });
   }
 
-  /* =====================================================================
-     РАБОТЫ: 3D-телефон с роликами, свайп и переворот
-     ===================================================================== */
+  /* РАБОТЫ: плоский медиапросмотр, свайп и мягкое переключение */
   var works = { list: [], idx: 0, filter: 'all', flip: null, drag: 0, pressed: false, startX: 0 };
   function filteredWorks() {
     return cfg.portfolio.filter(function (w) { return works.filter === 'all' || w.cat === works.filter; });
@@ -219,6 +217,7 @@
     if (reduceMotion || !dir) { setWorkMedia(w); renderWorkInfo(w, !reduceMotion); return; }
     works.flip = { start: performance.now(), dir: dir, swapped: false, w: w };
     renderWorkInfo(w, true);
+    kick();
   }
   function rebuildWorks(keepId) {
     works.list = filteredWorks();
@@ -232,22 +231,19 @@
     });
     if (works.list.length) { setWorkMedia(works.list[idx]); renderWorkInfo(works.list[idx], true); }
   }
-  function poseWorks(t) {
+  function poseWorks() {
     var ph = $('#phone3d'); if (!ph) return;
-    var ry = reduceMotion ? -14 : Math.sin(t * 0.5) * 16 - 6 + tilt.y * 14;
-    var rx = reduceMotion ? 4 : 4 + Math.sin(t * 0.7) * 3 + tilt.x * 6;
-    var fy = reduceMotion ? 0 : Math.sin(t * 1.1) * 7;
-    if (!works.pressed) works.drag *= 0.88;
-    var flipA = 0, sc = 1;
+    var x = 0, opacity = 1;
     if (works.flip) {
-      var p = (performance.now() - works.flip.start) / 750;
-      flipA = easeInOut(p) * 360 * works.flip.dir;
-      sc = 1 - Math.sin(clamp(p, 0, 1) * Math.PI) * 0.12;
+      var p = clamp((performance.now() - works.flip.start) / 320, 0, 1);
+      var visible = p < 0.5 ? p * 2 : (1 - p) * 2;
+      x = works.flip.dir * (p < 0.5 ? -1 : 1) * (1 - visible) * 10;
+      opacity = 0.25 + visible * 0.75;
       if (p >= 0.5 && !works.flip.swapped) { works.flip.swapped = true; setWorkMedia(works.flip.w); }
-      if (p >= 1) works.flip = null;
+      if (p >= 1) { works.flip = null; x = 0; opacity = 1; }
     }
-    ph.style.transform = 'translateY(' + fy + 'px) scale(' + sc + ') rotateX(' + rx + 'deg) rotateY(' + (ry + works.drag + flipA) + 'deg)';
-    var sh = $('.stage-shadow'); sh.style.transform = 'scale(' + (1 - fy / 70) * sc + ')'; sh.style.opacity = 0.9 - fy / 40;
+    ph.style.transform = 'translate3d(' + x.toFixed(2) + 'px,0,0)';
+    ph.style.opacity = opacity.toFixed(3);
   }
   function bindVideoFallback() {
     // если видео не может играть (нет кодека, экономия трафика) — показываем обложку
@@ -265,7 +261,7 @@
     });
   }
 
-  /* ---------- главный цикл анимации (работает только когда виден 3D) ---------- */
+  /* ---------- главный цикл: логотип и короткое переключение работ ---------- */
   var rafOn = false;
   function frame(now) {
     var t = now / 1000;
@@ -274,7 +270,7 @@
     if (currentScreen === 'works') poseWorks(t);
     if (!reduceMotion && !document.hidden && needsLoop()) requestAnimationFrame(frame); else rafOn = false;
   }
-  function needsLoop() { return currentScreen === 'home' || currentScreen === 'works' || currentScreen === 'login'; }
+  function needsLoop() { return currentScreen === 'home' || currentScreen === 'login' || (currentScreen === 'works' && !!works.flip); }
   function kick() {
     if (reduceMotion) { requestAnimationFrame(frame); return; }   // одна статичная поза
     if (!rafOn && needsLoop()) { rafOn = true; requestAnimationFrame(frame); }
@@ -292,6 +288,31 @@
   function observe(root) {
     $$('.reveal:not(.in)', root || document).forEach(function (n) { if (io && !reduceMotion) io.observe(n); else show_(n); });
   }
+  /* Небольшой parallax только для медиа видимого экрана. Без scroll-bibliотек,
+     без перехвата жестов и полностью отключается системной настройкой движения. */
+  var parallaxQueued = false;
+  function updateParallax() {
+    parallaxQueued = false;
+    if (reduceMotion || document.hidden) return;
+    var root = $('#screen-' + currentScreen);
+    if (!root) return;
+    var vh = window.innerHeight || 800;
+    $$('.hcard,.tile,.logo-video,.collab .vid', root).forEach(function (n) {
+      if (n.hidden || n.offsetParent === null) return;
+      var r = n.getBoundingClientRect();
+      if (r.bottom < -80 || r.top > vh + 80) return;
+      var center = r.top + r.height / 2;
+      var shift = clamp((vh / 2 - center) / vh * 18, -9, 9);
+      n.style.setProperty('--parallax', shift.toFixed(2) + 'px');
+    });
+  }
+  function queueParallax() {
+    if (parallaxQueued || reduceMotion) return;
+    parallaxQueued = true;
+    requestAnimationFrame(updateParallax);
+  }
+  window.addEventListener('scroll', queueParallax, { passive: true });
+  window.addEventListener('resize', queueParallax, { passive: true });
   function countUp(n) {
     if (n.__counted) return; n.__counted = true;
     var to = Number(n.getAttribute('data-count')), pre = n.getAttribute('data-pre') || '', suf = ' ' + (cfg.currency || '₽');
@@ -854,6 +875,7 @@
     if (name !== 'prices') $('#logoVideo').pause();
     if (name === 'profile' && cfg) renderProfile(true);
     var scr = $('#screen-' + name); if (scr) observe(scr);
+    queueParallax();
     syncTelegramButtons();
     kick();
   }
@@ -1122,6 +1144,32 @@
     window.addEventListener('scroll', function () { if (currentScreen === 'home' && reduceMotion) kick(); }, { passive: true });
     bindStage();
   }
+
+
+  /* ---------- Apple Liquid Glass specular highlight & Before/After slider ---------- */
+  (function initLiquidGlassAndWidgets() {
+    if (!reduceMotion) {
+      window.addEventListener('pointermove', function (e) {
+        document.documentElement.style.setProperty('--mx', e.clientX + 'px');
+        document.documentElement.style.setProperty('--my', e.clientY + 'px');
+      }, { passive: true });
+    }
+    var ba = $('#baSlider');
+    if (ba) {
+      var dragging = false;
+      var setPos = function (clientX) {
+        var r = ba.getBoundingClientRect();
+        if (!r.width) return;
+        var pct = clamp(((clientX - r.left) / r.width) * 100, 6, 94);
+        ba.style.setProperty('--pos', pct.toFixed(1) + '%');
+        var h = $('.ba-handle', ba);
+        if (h) h.setAttribute('aria-valuenow', String(Math.round(pct)));
+      };
+      ba.addEventListener('pointerdown', function (e) { dragging = true; setPos(e.clientX); });
+      window.addEventListener('pointermove', function (e) { if (dragging) setPos(e.clientX); }, { passive: true });
+      window.addEventListener('pointerup', function () { dragging = false; });
+    }
+  })();
 
   /* ---------- Старт ---------- */
   bind();
