@@ -52,7 +52,7 @@
     return Array.prototype.map.call(a, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
   }
 
-  function num(n) { return Number(n).toLocaleString('ru-RU').replace(/[\s   ]/g, ' '); }
+  function num(n) { return Number(n).toLocaleString('ru-RU').replace(/[\s  ]/g, ' '); }
   function formatPrice(s) {
     if (s.price === null || s.price === undefined) return 'Индивидуально';
     return (s.from ? 'от ' : '') + num(s.price) + ' ' + (cfg.currency || '₽');
