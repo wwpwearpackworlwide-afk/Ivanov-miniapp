@@ -49,6 +49,13 @@ let srv,b;
  ok((await p.$$eval('#catList .row',e=>e.length))===5,'главная: 4 услуги (рилсы, YouTube, логотип, разработка) + подписки');
  ok((await p.$$eval('#homeWorks .hcard',e=>e.length))===cfg.portfolio.length,'главная: все работы в ленте');
  ok((await p.$$eval('#featuresList .feature',e=>e.length))===4,'главная: 4 преимущества');
+ ok((await p.$$eval('.quick-orbs .q-orb',e=>e.length))===4,'v6: четыре быстрых действия на главной');
+ ok(!(await p.textContent('#screen-home')).includes('2 окна')&&!(await p.textContent('body')).includes('+400%'),'v6: нет неподтверждённых обещаний и статистики');
+ for(const [sel,scr] of [['.q-orb[data-go="works"]','works'],['.q-orb[data-go="profile"]','profile'],['.q-orb[data-mode-open="subs"]','prices'],['.q-orb[data-action="order"]','order']]){
+   await p.click(sel);await p.waitForSelector('#screen-'+scr+':not([hidden])');
+   ok(await p.isVisible('#screen-'+scr),'v6: быстрое действие открывает #'+scr);
+   await p.evaluate(()=>{location.hash='#home'});await p.waitForSelector('#screen-home:not([hidden])');
+ }
  for(const tab of ['prices','works','contacts','home']){ await p.click(`.tab[data-go="${tab}"]`); await p.waitForTimeout(120);
    ok(await p.isVisible(`#screen-${tab}`) && (await p.evaluate(()=>location.hash))==='#'+tab,'вкладка '+tab+' открывается без перезагрузки'); }
  await p.click('#catList [data-cat="montage"]'); await p.waitForTimeout(1200);
@@ -94,6 +101,13 @@ let srv,b;
  await p.click('[data-filter="logo"]'); await p.waitForTimeout(300);
  ok((await p.$$eval('#workDots i',e=>e.length))===cfg.portfolio.filter(w=>w.cat==='logo').length && (await p.textContent('#wTitle')).includes('логотип'),'фильтр «Логотипы» работает');
  await p.screenshot({path:OUT+'/5-works.png'});
+ await p.locator('#baSlider').scrollIntoViewIfNeeded();
+ const ba=await p.locator('#baSlider').boundingBox();
+ await p.mouse.click(ba.x+ba.width*.7,ba.y+ba.height*.5);
+ const baPointer=Number(await p.getAttribute('.ba-handle','aria-valuenow'));
+ ok(Math.abs(baPointer-70)<=2,'v6: «до/после» реагирует на указатель ('+baPointer+')');
+ await p.focus('.ba-handle');await p.keyboard.press('ArrowRight');
+ ok(Number(await p.getAttribute('.ba-handle','aria-valuenow'))===Math.min(baPointer+2,94),'v6: «до/после» управляется с клавиатуры');
  await p.click('#screen-works .menu-btn'); await p.waitForTimeout(600);
  ok(await p.evaluate(()=>document.body.classList.contains('menu-open')) && (await p.getAttribute('#drawer','aria-hidden'))==='false','☰ открывает меню');
  ok((await p.textContent('#drCollabs'))===String(cfg.collabs.length) && (await p.textContent('#drWorks'))===String(cfg.portfolio.length),'меню: счётчики коллабораций и работ из config.json');
@@ -206,8 +220,8 @@ let srv,b;
  await p.context().close();
 
  // ---- E: визуальный аудит всех экранов с реальной прокруткой
- ok(contrast('#9CA3B5','#070A12')>=4.5,'контраст вторичного текста к фону ≥4.5:1 ('+contrast('#9CA3B5','#070A12').toFixed(2)+':1)');
- ok(contrast('#A9B8E8','#070A12')>=4.5,'контраст холодного акцента к фону ≥4.5:1 ('+contrast('#A9B8E8','#070A12').toFixed(2)+':1)');
+ ok(contrast('#9CA3B5','#050508')>=4.5,'контраст вторичного текста к фону ≥4.5:1 ('+contrast('#9CA3B5','#050508').toFixed(2)+':1)');
+ ok(contrast('#A9B8E8','#050508')>=4.5,'контраст холодного акцента к фону ≥4.5:1 ('+contrast('#A9B8E8','#050508').toFixed(2)+':1)');
  const auditErrors=[],auditResponses=[];
  for(const width of [320,390,768]){
   const ac=await b.newContext({viewport:{width,height:844},deviceScaleFactor:1,isMobile:width<700,hasTouch:width<700});
