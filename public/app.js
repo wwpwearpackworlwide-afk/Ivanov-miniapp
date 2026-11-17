@@ -1145,47 +1145,6 @@
     bindStage();
   }
 
-
-  /* ---------- Apple Liquid Glass specular highlight & Before/After slider ---------- */
-  (function initLiquidGlassAndWidgets() {
-    if (!reduceMotion) {
-      window.addEventListener('pointermove', function (e) {
-        document.documentElement.style.setProperty('--mx', e.clientX + 'px');
-        document.documentElement.style.setProperty('--my', e.clientY + 'px');
-      }, { passive: true });
-    }
-    var ba = $('#baSlider');
-    if (ba) {
-      var dragging = false;
-      var handle = $('.ba-handle', ba);
-      var renderPos = function (pct) {
-        pct = clamp(pct, 6, 94);
-        ba.style.setProperty('--pos', pct.toFixed(1) + '%');
-        if (handle) handle.setAttribute('aria-valuenow', String(Math.round(pct)));
-      };
-      var setPos = function (clientX) {
-        var r = ba.getBoundingClientRect();
-        if (r.width) renderPos(((clientX - r.left) / r.width) * 100);
-      };
-      ba.addEventListener('pointerdown', function (e) {
-        dragging = true;
-        setPos(e.clientX);
-        try { ba.setPointerCapture(e.pointerId); } catch (err) {}
-      });
-      ba.addEventListener('pointermove', function (e) { if (dragging) setPos(e.clientX); }, { passive: true });
-      ba.addEventListener('pointerup', function () { dragging = false; });
-      ba.addEventListener('pointercancel', function () { dragging = false; });
-      if (handle) handle.addEventListener('keydown', function (e) {
-        var current = Number(handle.getAttribute('aria-valuenow')) || 52;
-        var step = e.shiftKey ? 10 : 2;
-        if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); renderPos(current - step); }
-        if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); renderPos(current + step); }
-        if (e.key === 'Home') { e.preventDefault(); renderPos(6); }
-        if (e.key === 'End') { e.preventDefault(); renderPos(94); }
-      });
-    }
-  })();
-
   /* ---------- Старт ---------- */
   bind();
   initTelegram();

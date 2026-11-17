@@ -15,15 +15,6 @@
 </head>
 <body>
   <div class="bg" aria-hidden="true"><i class="blob b1"></i><i class="blob b2"></i><i class="blob b3"></i></div>
-  <svg width="0" height="0" style="position:absolute;pointer-events:none" aria-hidden="true">
-    <defs>
-      <filter id="liquid-glass-lens" x="-10%" y="-10%" width="120%" height="120%">
-        <feTurbulence type="fractalNoise" baseFrequency="0.012 0.018" numOctaves="2" seed="7" result="noise"/>
-        <feGaussianBlur in="noise" stdDeviation="3" result="smoothNoise"/>
-        <feDisplacementMap in="SourceGraphic" in2="smoothNoise" scale="8" xChannelSelector="R" yChannelSelector="G"/>
-      </filter>
-    </defs>
-  </svg>
 
   <!-- Фирменный 3D-логотип: два стеклянных клипа и плейхед. Собирается из граней в app.js -->
   <template id="logo3dTpl">
@@ -80,40 +71,6 @@
           <span class="visual-index" aria-hidden="true">IS®</span>
         </div>
         <div class="hero-signal" aria-hidden="true"><i></i><span>EDIT / MOTION / CODE</span><span>SCROLL ↓</span></div>
-      </div>
-
-
-      <div class="studio-widget glass reveal" style="--d:1" aria-label="Этапы работы">
-        <div class="sw-row">
-          <div class="sw-live"><i class="sw-dot"></i><span>Прозрачный процесс: <b>4 этапа</b></span></div>
-          <span class="pill blue">Лично на связи</span>
-        </div>
-        <div class="sw-progress" aria-hidden="true"><i style="width:100%"></i></div>
-        <div class="sw-steps">
-          <span>Сценарий</span>
-          <span>Монтаж</span>
-          <span>Motion 3D</span>
-          <span>Сдача</span>
-        </div>
-      </div>
-
-      <div class="quick-orbs reveal" style="--d:2" aria-label="Быстрые действия">
-        <button class="q-orb" data-action="order" type="button">
-          <span class="q-circle glass"><svg viewBox="0 0 24 24"><use href="#i-plus"/></svg></span>
-          <small>Заказ</small>
-        </button>
-        <button class="q-orb" data-mode-open="subs" type="button">
-          <span class="q-circle glass"><svg viewBox="0 0 24 24"><use href="#i-subs"/></svg></span>
-          <small>Подписки</small>
-        </button>
-        <button class="q-orb" data-go="works" type="button">
-          <span class="q-circle glass"><svg viewBox="0 0 24 24"><use href="#i-film"/></svg></span>
-          <small>Кейсы</small>
-        </button>
-        <button class="q-orb" data-go="profile" type="button">
-          <span class="q-circle glass"><svg viewBox="0 0 24 24"><use href="#i-user"/></svg></span>
-          <small>Профиль</small>
-        </button>
       </div>
 
       <div class="lbl reveal"><span>Услуги</span></div>
@@ -215,29 +172,6 @@
         <button class="btn btn-primary btn-wide" id="wOpen" type="button">Смотреть</button>
       </div>
 
-
-      <div class="lbl reveal"><span>Что меняет монтаж</span><span class="pill blue">Двигайте ползунок</span></div>
-      <div class="ba-card glass reveal" id="baSlider" style="--pos:52%">
-        <div class="ba-after">
-          <div class="ba-badge right">FINAL · COLOR + 3D</div>
-          <div class="ba-ui-mock">
-            <span class="ba-chip">MOTION CAPTIONS</span>
-            <b>Монтаж, цвет &amp; звук</b>
-            <small>Цвет · 3D · звук</small>
-          </div>
-        </div>
-        <div class="ba-before">
-          <div class="ba-badge left">RAW ИСХОДНИК</div>
-          <div class="ba-raw-mock">
-            <span>Сырой кадр с камеры</span>
-            <small>Без цвета, звука и динамики</small>
-          </div>
-        </div>
-        <div class="ba-handle" role="slider" tabindex="0" aria-label="Сравнение до и после монтажа" aria-valuemin="6" aria-valuemax="94" aria-valuenow="52">
-          <span class="ba-knob">↔</span>
-        </div>
-      </div>
-
       <div class="lbl"><span>Все работы</span></div>
       <div class="grid" id="workGrid"></div>
     </section>
@@ -294,35 +228,6 @@
         <div class="glass p-stat"><b id="pTotal">0</b><small>заказов</small></div>
         <div class="glass p-stat"><b id="pActive">0</b><small>в работе</small></div>
         <div class="glass p-stat"><b id="pDone">0</b><small>готово</small></div>
-      </div>
-
-      <div class="analytics-card glass reveal" style="--d:1">
-        <div class="an-top">
-          <span class="an-meta">Структура эффективного ролика</span>
-          <span class="pill blue">Reels / Shorts</span>
-        </div>
-        <svg class="an-chart" viewBox="0 0 320 96" preserveAspectRatio="none" aria-hidden="true">
-          <defs>
-            <linearGradient id="anLine" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stop-color="#1951fc" stop-opacity="0.25"/>
-              <stop offset="50%" stop-color="#cbe9fd" stop-opacity="1"/>
-              <stop offset="100%" stop-color="#1951fc" stop-opacity="0.25"/>
-            </linearGradient>
-            <linearGradient id="anFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#3781fc" stop-opacity="0.32"/>
-              <stop offset="100%" stop-color="#050508" stop-opacity="0"/>
-            </linearGradient>
-          </defs>
-          <path d="M0,74 C55,74 85,78 115,64 C138,52 145,16 162,16 C179,16 192,58 228,68 C262,76 290,72 320,72 L320,96 L0,96 Z" fill="url(#anFill)"/>
-          <path d="M0,74 C55,74 85,78 115,64 C138,52 145,16 162,16 C179,16 192,58 228,68 C262,76 290,72 320,72" fill="none" stroke="url(#anLine)" stroke-width="2.5" stroke-linecap="round"/>
-          <circle cx="162" cy="16" r="5" fill="#cbe9fd"/>
-          <circle cx="162" cy="16" r="11" fill="#3781fc" fill-opacity="0.35"/>
-        </svg>
-        <div class="an-metric">
-          <small>Фокус системного монтажа</small>
-          <b>Динамика</b>
-          <span>темп · субтитры · цвет · звук</span>
-        </div>
       </div>
       <div class="lbl reveal" style="--d:2"><span>Мои заказы</span><button class="link-btn" id="pRefresh" type="button">Обновить</button></div>
       <div id="orderList"></div>
