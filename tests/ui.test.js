@@ -20,6 +20,8 @@ const stub=(scheme)=>`window.__mb={};window.Telegram={WebApp:{initData:${JSON.st
  MainButton:{params:{},setParams(p){Object.assign(this.params,p)},show(){this.params.is_visible=true},hide(){this.params.is_visible=false},onClick(f){this.f=f},
   showProgress(){this.progress=true},hideProgress(){this.progress=false},enable(){this.params.is_active=true},disable(){this.params.is_active=false}}}};`;
 const res=[];const ok=(c,n)=>{res.push((c?'✅ ':'❌ ')+n)};
+function luminance(hex){const rgb=hex.match(/[a-f\d]{2}/gi).map(x=>parseInt(x,16)/255).map(x=>x<=.04045?x/12.92:Math.pow((x+.055)/1.055,2.4));return .2126*rgb[0]+.7152*rgb[1]+.0722*rgb[2]}
+function contrast(a,b){const x=luminance(a),y=luminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05)}
 let srv,b;
 (async()=>{
  try {
@@ -87,7 +89,8 @@ let srv,b;
  await p.screenshot({path:OUT+'/4-browser-refused.png',fullPage:true});
  await p.goto(url+'#works'); await p.waitForSelector('#screen-works:not([hidden])');
  const t1=await p.textContent('#wTitle'); await p.click('[data-action="work-next"]'); await p.waitForTimeout(900);
- ok(t1!==await p.textContent('#wTitle'),'работы: стрелка листает 3D-телефон ('+t1+' → '+await p.textContent('#wTitle')+')');
+ ok(t1!==await p.textContent('#wTitle'),'работы: стрелка листает плоский медиапросмотр ('+t1+' → '+await p.textContent('#wTitle')+')');
+ ok(await p.$eval('#phone3d',n=>getComputedStyle(n).transformStyle!=='preserve-3d') && (await p.$$eval('#stage .p-edge,#stage .p-back,#stage .p-island,#stage .p-glare',e=>e.length))===0,'портфолио: нет 3D-телефона, перспективы и декоративного корпуса');
  await p.click('[data-filter="logo"]'); await p.waitForTimeout(300);
  ok((await p.$$eval('#workDots i',e=>e.length))===cfg.portfolio.filter(w=>w.cat==='logo').length && (await p.textContent('#wTitle')).includes('логотип'),'фильтр «Логотипы» работает');
  await p.screenshot({path:OUT+'/5-works.png'});
@@ -199,6 +202,41 @@ let srv,b;
  const tabH=await p.evaluate(()=>Math.min(...[...document.querySelectorAll('.tab')].map(t=>t.getBoundingClientRect().height)));
  ok(tabH>=44,'кнопки навигации ≥44px по высоте ('+tabH+'px), внизу экрана — удобно большим пальцем');
  await p.screenshot({path:OUT+'/8-320px.png'});
+ ok(!(await p.$eval('#homeWorks .hcard',n=>n.style.getPropertyValue('--parallax'))),'reduced motion: parallax не запускается');
+ await p.context().close();
+
+ // ---- E: визуальный аудит всех экранов с реальной прокруткой
+ ok(contrast('#9CA3B5','#070A12')>=4.5,'контраст вторичного текста к фону ≥4.5:1 ('+contrast('#9CA3B5','#070A12').toFixed(2)+':1)');
+ ok(contrast('#A9B8E8','#070A12')>=4.5,'контраст холодного акцента к фону ≥4.5:1 ('+contrast('#A9B8E8','#070A12').toFixed(2)+':1)');
+ const auditErrors=[],auditResponses=[];
+ for(const width of [320,390,768]){
+  const ac=await b.newContext({viewport:{width,height:844},deviceScaleFactor:1,isMobile:width<700,hasTouch:width<700});
+  p=await ac.newPage();p.setDefaultTimeout(8000);
+  p.on('pageerror',e=>auditErrors.push(width+': '+e.message));
+  p.on('console',m=>{if(m.type()==='error')auditErrors.push(width+': console: '+m.text())});
+  p.on('response',r=>{if(r.url().startsWith(url)&&r.status()>=400)auditResponses.push(width+': '+r.status()+' '+r.url())});
+  await p.route('https://telegram.org/**',r=>r.fulfill({contentType:'text/javascript',body:stub('dark')}));
+  await p.goto(url+'#home');await p.waitForSelector('#catList .row',{state:'attached'});
+  for(const scr of ['home','prices','works','contacts','about','collabs','howto','faq','profile','order']){
+   await p.evaluate(s=>{location.hash='#'+s},scr);await p.waitForSelector('#screen-'+scr+':not([hidden])');
+   await p.evaluate(async()=>{for(let y=0;y<document.documentElement.scrollHeight;y+=innerHeight*.65){scrollTo(0,y);await new Promise(r=>setTimeout(r,70))}scrollTo(0,0);await new Promise(r=>setTimeout(r,100))});
+   ok(await p.evaluate(w=>document.documentElement.scrollWidth<=w,width),width+'px #'+scr+': нет горизонтального overflow');
+   const hidden=await p.$$eval('#screen-'+scr+' .reveal',ns=>ns.filter(n=>n.offsetParent!==null&&!n.classList.contains('in')).length);
+   ok(hidden===0,width+'px #'+scr+': контент полностью появляется после прокрутки');
+   if(width===390&&['home','works','profile','order'].includes(scr))await p.screenshot({path:OUT+'/audit-'+scr+'.png',fullPage:true});
+  }
+  if(width===390){
+   await p.evaluate(()=>{location.hash='#home'});await p.waitForSelector('#screen-home:not([hidden])');
+   await p.locator('#homeWorks .hcard').first().scrollIntoViewIfNeeded();await p.waitForTimeout(120);
+   const before=await p.$eval('#homeWorks .hcard',n=>n.style.getPropertyValue('--parallax'));
+   await p.evaluate(()=>scrollBy(0,-160));await p.waitForTimeout(120);
+   const after=await p.$eval('#homeWorks .hcard',n=>n.style.getPropertyValue('--parallax'));
+   ok(!!before&&!!after&&before!==after,'параллакс медиа реагирует на прокрутку ('+before+' → '+after+')');
+  }
+  await ac.close();
+ }
+ ok(auditErrors.length===0,'визуальный аудит: zero console / JS errors'+(auditErrors.length?': '+auditErrors.join('; '):''));
+ ok(auditResponses.length===0,'визуальный аудит: zero HTTP 4xx/5xx и 404'+(auditResponses.length?': '+auditResponses.join('; '):''));
  ok(errors.length===0,'JS-ошибок на странице нет'+(errors.length?': '+errors.join('; '):''));
  console.log(res.join('\n')); console.log(`\n${res.filter(r=>r[0]==='✅').length}/${res.length}`);
  process.exitCode=res.some(r=>r[0]==='❌')?1:0;
